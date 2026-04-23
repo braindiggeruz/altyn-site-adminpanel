@@ -1,0 +1,20 @@
+{
+  "query": "CREATE TABLE `articles` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`title` varchar(255) NOT NULL,\n\t`slug` varchar(255) NOT NULL,\n\t`h1` varchar(255) NOT NULL DEFAULT '',\n\t`metaDescription` varchar(160) NOT NULL DEFAULT '',\n\t`metaKeywords` varchar(255),\n\t`ogTitle` varchar(255),\n\t`ogDescription` varchar(300),\n\t`ogImage` varchar(500),\n\t`twitterTitle` varchar(255),\n\t`twitterDescription` varchar(300),\n\t`canonicalUrl` varchar(500),\n\t`content` text NOT NULL DEFAULT (''),\n\t`excerpt` varchar(500),\n\t`featuredImageUrl` varchar(500),\n\t`featuredImageAlt` varchar(255),\n\t`internalLinks` json,\n\t`relatedArticles` json,\n\t`schemaType` varchar(50),\n\t`schemaJson` json,\n\t`targetKeyword` varchar(255),\n\t`keywordDensity` float,\n\t`readabilityScore` int,\n\t`seoScore` int,\n\t`status` enum('draft','scheduled','published','archived') NOT NULL DEFAULT 'draft',\n\t`publishedAt` timestamp NULL,\n\t`scheduledAt` timestamp NULL,\n\t`views` int DEFAULT 0,\n\t`avgTimeOnPage` int,\n\t`bounceRate` float,\n\t`indexed` boolean DEFAULT false,\n\t`indexedAt` timestamp NULL,\n\t`googleRank` int,\n\t`googleRankUpdatedAt` timestamp NULL,\n\t`authorId` int,\n\t`categoryId` int,\n\t`tags` json,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `articles_id` PRIMARY KEY(`id`),\n\tCONSTRAINT `articles_slug_unique` UNIQUE(`slug`)\n)",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4KSaivqjrnnqvCu.root --database k94VEMiTJ5JY4NMB8skDnf --execute CREATE TABLE `articles` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`title` varchar(255) NOT NULL,\n\t`slug` varchar(255) NOT NULL,\n\t`h1` varchar(255) NOT NULL DEFAULT '',\n\t`metaDescription` varchar(160) NOT NULL DEFAULT '',\n\t`metaKeywords` varchar(255),\n\t`ogTitle` varchar(255),\n\t`ogDescription` varchar(300),\n\t`ogImage` varchar(500),\n\t`twitterTitle` varchar(255),\n\t`twitterDescription` varchar(300),\n\t`canonicalUrl` varchar(500),\n\t`content` text NOT NULL DEFAULT (''),\n\t`excerpt` varchar(500),\n\t`featuredImageUrl` varchar(500),\n\t`featuredImageAlt` varchar(255),\n\t`internalLinks` json,\n\t`relatedArticles` json,\n\t`schemaType` varchar(50),\n\t`schemaJson` json,\n\t`targetKeyword` varchar(255),\n\t`keywordDensity` float,\n\t`readabilityScore` int,\n\t`seoScore` int,\n\t`status` enum('draft','scheduled','published','archived') NOT NULL DEFAULT 'draft',\n\t`publishedAt` timestamp NULL,\n\t`scheduledAt` timestamp NULL,\n\t`views` int DEFAULT 0,\n\t`avgTimeOnPage` int,\n\t`bounceRate` float,\n\t`indexed` boolean DEFAULT false,\n\t`indexedAt` timestamp NULL,\n\t`googleRank` int,\n\t`googleRankUpdatedAt` timestamp NULL,\n\t`authorId` int,\n\t`categoryId` int,\n\t`tags` json,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `articles_id` PRIMARY KEY(`id`),\n\tCONSTRAINT `articles_slug_unique` UNIQUE(`slug`)\n)",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1064 (42000) at line 1: You have an error in your SQL syntax; check the manual that corresponds to your TiDB version for the right syntax to use line 14 column 37 near \"''),",
+    "\t`excerpt` varchar(500),",
+    "\t`featuredImageUrl` varchar(500),",
+    "\t`featuredImageAlt` varchar(255),",
+    "\t`internalLinks` json,",
+    "\t`relatedArticles` json,",
+    "\t`schemaType` varchar(50),",
+    "\t`schemaJson` json,",
+    "\t`targetKeyword` varchar(255),",
+    "\t`keywordDensity` float,",
+    "\t`readabilityScore` int,",
+    "\t`seoScore` int,",
+    "\t`status` enum('draft','scheduled','published','archived') NOT NULL DEFAULT"
+  ]
+}
