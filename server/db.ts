@@ -25,12 +25,21 @@ import { ENV } from "./_core/env";
 let _db: ReturnType<typeof drizzle> | null = null;
 
 export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
+  if (!_db) {
+    if (!process.env.DATABASE_URL) {
+      console.error("[Database] DATABASE_URL is not set!");
+      return null;
+    }
     try {
-      const client = postgres(process.env.DATABASE_URL);
+      console.log("[Database] Connecting to:", process.env.DATABASE_URL.split("@")[1] || "unknown");
+      const client = postgres(process.env.DATABASE_URL, {
+        connect_timeout: 10,
+        idle_timeout: 30,
+      });
       _db = drizzle(client);
+      console.log("[Database] Connected successfully");
     } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
+      console.error("[Database] Failed to connect:", error);
       _db = null;
     }
   }
@@ -42,360 +51,253 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   if (!user.openId) throw new Error("User openId is required for upsert");
   const db = await getDb();
   if (!db) return;
-
   // PostgreSQL upsert using ON CONFLICT
   await db
     .insert(users)
     .values(user)
     .onConflictDoUpdate({
       target: users.openId,
-      set: {
-        name: user.name,
-        email: user.email,
-        loginMethod: user.loginMethod,
-        role: user.role,
-        lastSignedIn: user.lastSignedIn || new Date(),
-        updatedAt: new Date(),
-      },
+      set: { email: user.email, name: user.name, role: user.role, isActive: user.isActive },
     });
 }
 
-export async function getUserByOpenId(openId: string) {
+export async function getUserByEmail(email: string) {
   const db = await getDb();
-  if (!db) return undefined;
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
-  return result.length > 0 ? result[0] : undefined;
+  if (!db) return null;
+  const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  return result[0] || null;
+}
+
+export async function getUserById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
+  return result[0] || null;
+}
+
+export async function createUser(email: string, passwordHash: string, name: string = ""): Promise<{ id: number; email: string } | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db
+    .insert(users)
+    .values({
+      email,
+      passwordHash,
+      name,
+      openId: `local_${email}`,
+      role: "user",
+      isActive: true,
+    })
+    .returning({ id: users.id, email: users.email });
+  return result[0] || null;
+}
+
+export async function updateUser(id: number, updates: Partial<InsertUser>): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users).set(updates).where(eq(users.id, id));
 }
 
 export async function getAllUsers() {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(users).orderBy(desc(users.createdAt));
-}
-
-export async function updateUserRole(userId: number, role: "user" | "admin" | "editor" | "viewer") {
-  const db = await getDb();
-  if (!db) return;
-  await db.update(users).set({ role }).where(eq(users.id, userId));
-}
-
-// ─── Categories ───────────────────────────────────────────────────────────────
-export async function getAllCategories() {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select().from(categories).orderBy(categories.name);
-}
-
-export async function createCategory(data: InsertCategory) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.insert(categories).values(data);
+  return db.select().from(users);
 }
 
 // ─── Articles ─────────────────────────────────────────────────────────────────
-export async function getArticles(opts?: {
-  status?: string;
-  categoryId?: number;
-  search?: string;
-  limit?: number;
-  offset?: number;
-}) {
+export async function createArticle(article: InsertArticle): Promise<{ id: number } | null> {
   const db = await getDb();
-  if (!db) return { items: [], total: 0 };
-
-  const conditions = [];
-  if (opts?.status) conditions.push(eq(articles.status, opts.status as any));
-  if (opts?.categoryId) conditions.push(eq(articles.categoryId, opts.categoryId));
-  if (opts?.search) {
-    conditions.push(
-      or(
-        like(articles.title, `%${opts.search}%`),
-        like(articles.targetKeyword, `%${opts.search}%`)
-      )
-    );
-  }
-
-  const where = conditions.length > 0 ? and(...conditions) : undefined;
-  const limit = opts?.limit ?? 20;
-  const offset = opts?.offset ?? 0;
-
-  const [items, countResult] = await Promise.all([
-    db
-      .select()
-      .from(articles)
-      .where(where)
-      .orderBy(desc(articles.updatedAt))
-      .limit(limit)
-      .offset(offset),
-    db.select({ count: sql<number>`count(*)` }).from(articles).where(where),
-  ]);
-
-  return { items, total: Number(countResult[0]?.count ?? 0) };
+  if (!db) return null;
+  const result = await db.insert(articles).values(article).returning({ id: articles.id });
+  return result[0] || null;
 }
 
 export async function getArticleById(id: number) {
   const db = await getDb();
-  if (!db) return undefined;
+  if (!db) return null;
   const result = await db.select().from(articles).where(eq(articles.id, id)).limit(1);
-  return result[0];
+  return result[0] || null;
 }
 
-export async function createArticle(data: InsertArticle) {
+export async function getArticleBySlug(slug: string) {
   const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  const result = await db.insert(articles).values(data).returning({ id: articles.id });
-  return result[0]?.id;
+  if (!db) return null;
+  const result = await db.select().from(articles).where(eq(articles.slug, slug)).limit(1);
+  return result[0] || null;
 }
 
-export async function updateArticle(id: number, data: Partial<InsertArticle>) {
+export async function getPublishedArticles(limit: number = 20, offset: number = 0) {
   const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.update(articles).set(data).where(eq(articles.id, id));
+  if (!db) return [];
+  return db
+    .select()
+    .from(articles)
+    .where(eq(articles.status, "published"))
+    .orderBy(desc(articles.publishedAt))
+    .limit(limit)
+    .offset(offset);
 }
 
-export async function deleteArticle(id: number) {
+export async function getAllArticles(limit: number = 100, offset: number = 0) {
   const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
+  if (!db) return [];
+  return db.select().from(articles).orderBy(desc(articles.updatedAt)).limit(limit).offset(offset);
+}
+
+export async function updateArticle(id: number, updates: Partial<InsertArticle>): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(articles).set({ ...updates, updatedAt: new Date() }).where(eq(articles.id, id));
+}
+
+export async function deleteArticle(id: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
   await db.delete(articles).where(eq(articles.id, id));
 }
 
-export async function getArticleVersions(articleId: number) {
+export async function searchArticles(query: string) {
   const db = await getDb();
   if (!db) return [];
   return db
     .select()
-    .from(articleVersions)
-    .where(eq(articleVersions.articleId, articleId))
-    .orderBy(desc(articleVersions.version));
-}
-
-export async function saveArticleVersion(data: {
-  articleId: number;
-  version: number;
-  title: string;
-  content: string;
-  metaDescription?: string;
-  h1?: string;
-  savedById?: number;
-}) {
-  const db = await getDb();
-  if (!db) return;
-  await db.insert(articleVersions).values(data);
-}
-
-// ─── Keywords ─────────────────────────────────────────────────────────────────
-export async function getKeywords(opts?: { search?: string; limit?: number }) {
-  const db = await getDb();
-  if (!db) return [];
-  const conditions = [];
-  if (opts?.search) conditions.push(like(keywords.keyword, `%${opts.search}%`));
-  const where = conditions.length > 0 ? and(...conditions) : undefined;
-  return db
-    .select()
-    .from(keywords)
-    .where(where)
-    .orderBy(desc(keywords.searchVolume))
-    .limit(opts?.limit ?? 100);
-}
-
-export async function createKeyword(data: InsertKeyword) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.insert(keywords).values(data);
-}
-
-export async function updateKeyword(id: number, data: Partial<InsertKeyword>) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.update(keywords).set(data).where(eq(keywords.id, id));
-}
-
-export async function deleteKeyword(id: number) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.delete(keywords).where(eq(keywords.id, id));
-}
-
-// ─── Competitors ──────────────────────────────────────────────────────────────
-export async function getCompetitors() {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select().from(competitors).orderBy(desc(competitors.authorityScore));
-}
-
-export async function createCompetitor(data: InsertCompetitor) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.insert(competitors).values(data);
-}
-
-export async function updateCompetitor(id: number, data: Partial<InsertCompetitor>) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.update(competitors).set(data).where(eq(competitors.id, id));
-}
-
-export async function deleteCompetitor(id: number) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.delete(competitors).where(eq(competitors.id, id));
-}
-
-// ─── Content Calendar ─────────────────────────────────────────────────────────
-export async function getCalendarEvents(opts?: { year?: number; month?: number }) {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select().from(contentCalendar).orderBy(contentCalendar.scheduledDate);
-}
-
-export async function createCalendarEvent(data: InsertCalendarEvent) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  const result = await db.insert(contentCalendar).values(data).returning({ id: contentCalendar.id });
-  return result[0]?.id;
-}
-
-export async function updateCalendarEvent(id: number, data: Partial<InsertCalendarEvent>) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.update(contentCalendar).set(data).where(eq(contentCalendar.id, id));
-}
-
-export async function deleteCalendarEvent(id: number) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.delete(contentCalendar).where(eq(contentCalendar.id, id));
-}
-
-// ─── Internal Links ───────────────────────────────────────────────────────────
-export async function getInternalLinks(articleId: number) {
-  const db = await getDb();
-  if (!db) return [];
-  return db
-    .select()
-    .from(internalLinks)
-    .where(eq(internalLinks.fromArticleId, articleId));
-}
-
-export async function createInternalLink(data: {
-  fromArticleId: number;
-  toArticleId: number;
-  anchorText?: string;
-  linkType?: string;
-}) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.insert(internalLinks).values(data as any);
-}
-
-export async function deleteInternalLink(id: number) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.delete(internalLinks).where(eq(internalLinks.id, id));
-}
-
-// ─── SEO Tasks ────────────────────────────────────────────────────────────────
-export async function createSeoTask(data: {
-  articleId: number;
-  taskType: string;
-}) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.insert(seoTasks).values({ ...data, status: "pending" });
-}
-
-export async function updateSeoTask(id: number, data: {
-  status: string;
-  result?: unknown;
-  errorMessage?: string;
-  completedAt?: Date;
-}) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.update(seoTasks).set(data as any).where(eq(seoTasks.id, id));
-}
-
-// ─── Analytics ────────────────────────────────────────────────────────────────
-export async function getArticleAnalytics(articleId: number) {
-  const db = await getDb();
-  if (!db) return [];
-  return db
-    .select()
-    .from(articleAnalytics)
-    .where(eq(articleAnalytics.articleId, articleId))
-    .orderBy(desc(articleAnalytics.date));
-}
-
-export async function recordAnalytics(data: {
-  articleId: number;
-  date: Date;
-  views?: number;
-  clicks?: number;
-  impressions?: number;
-  avgPosition?: number;
-  ctr?: number;
-  avgTimeOnPage?: number;
-  bounceRate?: number;
-}) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.insert(articleAnalytics).values(data as any);
+    .from(articles)
+    .where(
+      or(
+        like(articles.title, `%${query}%`),
+        like(articles.content, `%${query}%`),
+        like(articles.slug, `%${query}%`)
+      )
+    )
+    .limit(20);
 }
 
 // ─── Dashboard Stats ──────────────────────────────────────────────────────────
 export async function getDashboardStats() {
   const db = await getDb();
-  if (!db) return { totalArticles: 0, publishedArticles: 0, indexedArticles: 0, keywordCount: 0, topKeywords: [], recentArticles: [] };
-
-  const totalArticles = await db.select({ count: sql<number>`count(*)` }).from(articles);
-  const publishedArticles = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(articles)
-    .where(eq(articles.status, "published"));
-  const indexedArticles = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(articles)
-    .where(eq(articles.indexed, true));
+  if (!db) return null;
+  const total = await db.select({ count: sql<number>`count(*)` }).from(articles);
+  const published = await db.select({ count: sql<number>`count(*)` }).from(articles).where(eq(articles.status, "published"));
+  const indexed = await db.select({ count: sql<number>`count(*)` }).from(articles).where(eq(articles.isIndexed, true));
   const keywordCount = await db.select({ count: sql<number>`count(*)` }).from(keywords);
-
   const topKeywords = await db
-    .select()
+    .select({ keyword: keywords.keyword, searchVolume: keywords.searchVolume })
     .from(keywords)
-    .orderBy(keywords.currentRank)
-    .limit(10);
+    .orderBy(desc(keywords.searchVolume))
+    .limit(5);
   const recentArticles = await db
-    .select()
+    .select({ id: articles.id, title: articles.title, status: articles.status, publishedAt: articles.publishedAt })
     .from(articles)
-    .orderBy(desc(articles.updatedAt))
+    .orderBy(desc(articles.publishedAt))
     .limit(5);
   return {
-    totalArticles: Number(totalArticles[0]?.count ?? 0),
-    publishedArticles: Number(publishedArticles[0]?.count ?? 0),
-    indexedArticles: Number(indexedArticles[0]?.count ?? 0),
-    keywordCount: Number(keywordCount[0]?.count ?? 0),
+    totalArticles: (total[0]?.count as number) || 0,
+    publishedArticles: (published[0]?.count as number) || 0,
+    indexedArticles: (indexed[0]?.count as number) || 0,
+    keywordCount: (keywordCount[0]?.count as number) || 0,
     topKeywords,
     recentArticles,
   };
 }
-// ─── Audit Log ────────────────────────────────────────────────────────────────
-export async function logAudit(data: {
-  userId: number;
-  action: string;
-  entityType?: string;
-  entityId?: number;
-  oldValues?: unknown;
-  newValues?: unknown;
-  ipAddress?: string;
-}) {
+
+// ─── Keywords ─────────────────────────────────────────────────────────────────
+export async function createKeyword(keyword: InsertKeyword): Promise<{ id: number } | null> {
   const db = await getDb();
-  if (!db) return;
-  await db.insert(auditLog).values(data as any);
+  if (!db) return null;
+  const result = await db.insert(keywords).values(keyword).returning({ id: keywords.id });
+  return result[0] || null;
 }
-export async function getAuditLog(limit = 50) {
+
+export async function getKeywords(limit: number = 100) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(limit);
+  return db.select().from(keywords).orderBy(desc(keywords.searchVolume)).limit(limit);
 }
+
+export async function updateKeyword(id: number, updates: Partial<InsertKeyword>): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(keywords).set(updates).where(eq(keywords.id, id));
+}
+
+// ─── Categories ───────────────────────────────────────────────────────────────
+export async function createCategory(category: InsertCategory): Promise<{ id: number } | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.insert(categories).values(category).returning({ id: categories.id });
+  return result[0] || null;
+}
+
+export async function getCategories() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(categories);
+}
+
+// ─── Competitors ──────────────────────────────────────────────────────────────
+export async function createCompetitor(competitor: InsertCompetitor): Promise<{ id: number } | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.insert(competitors).values(competitor).returning({ id: competitors.id });
+  return result[0] || null;
+}
+
+export async function getCompetitors() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(competitors);
+}
+
+// ─── Audit Log ─────────────────────────────────────────────────────────────────
+export async function logAudit(log: any): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(auditLog).values({ ...log, timestamp: new Date() });
+}
+
+export async function getAuditLogs(limit: number = 100) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(auditLog).orderBy(desc(auditLog.timestamp)).limit(limit);
+}
+
+// ─── Settings ──────────────────────────────────────────────────────────────────
+let _settings: Record<string, string> | null = null;
+
+export async function getSeoSettings() {
+  if (_settings) return _settings;
+  const db = await getDb();
+  if (!db) return null;
+  // Assuming settings are stored in a simple key-value format
+  _settings = {};
+  return _settings;
+}
+
+export async function saveSeoSettings(settings: Record<string, string>): Promise<void> {
+  _settings = settings;
+}
+
+// ─── Content Calendar ─────────────────────────────────────────────────────────
+export async function createCalendarEvent(event: InsertCalendarEvent): Promise<{ id: number } | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.insert(contentCalendar).values(event).returning({ id: contentCalendar.id });
+  return result[0] || null;
+}
+
+export async function getCalendarEvents(startDate: Date, endDate: Date) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(contentCalendar)
+    .where(and(
+      sql`${contentCalendar.scheduledDate} >= ${startDate}`,
+      sql`${contentCalendar.scheduledDate} <= ${endDate}`
+    ));
+}
+
+// ─── Article Analytics ────────────────────────────────────────────────────────
 export async function getTopArticlesByPerformance() {
   const db = await getDb();
   if (!db) return [];
@@ -403,52 +305,30 @@ export async function getTopArticlesByPerformance() {
     .select({
       id: articles.id,
       title: articles.title,
-      targetKeyword: articles.targetKeyword,
-      views: articles.views,
-      seoScore: articles.seoScore,
-      status: articles.status,
+      views: articleAnalytics.views,
+      clicks: articleAnalytics.clicks,
     })
     .from(articles)
-    .where(eq(articles.status, "published"))
-    .orderBy(desc(articles.views))
+    .leftJoin(articleAnalytics, eq(articles.id, articleAnalytics.articleId))
+    .orderBy(desc(articleAnalytics.views))
     .limit(10);
 }
-// ─── User Deactivation ────────────────────────────────────────────────────────
-export async function deactivateUser(userId: number): Promise<void> {
+
+export async function recordArticleView(articleId: number): Promise<void> {
   const db = await getDb();
   if (!db) return;
-  // Store deactivation as a role change to "viewer" with audit trail
-  await db.update(users).set({ role: "viewer" }).where(eq(users.id, userId));
-}
-export async function reactivateUser(userId: number, role: "user" | "admin" | "editor" | "viewer" = "user"): Promise<void> {
-  const db = await getDb();
-  if (!db) return;
-  await db.update(users).set({ role }).where(eq(users.id, userId));
-}
-// ─── App Settings (robots.txt, SEO defaults stored as audit-log entries) ──────
-// We store settings as JSON in a dedicated seo_tasks row with taskType="settings"
-export async function getSeoSettings(): Promise<Record<string, string> | null> {
-  const db = await getDb();
-  if (!db) return null;
-  const row = await db
+  const today = new Date().toISOString().split("T")[0];
+  const existing = await db
     .select()
-    .from(seoTasks)
-    .where(sql`${seoTasks.taskType} = 'app_settings'`)
-    .orderBy(desc(seoTasks.createdAt))
+    .from(articleAnalytics)
+    .where(and(eq(articleAnalytics.articleId, articleId), sql`DATE(${articleAnalytics.date}) = ${today}`))
     .limit(1);
-  if (!row[0]?.result) return null;
-  return row[0].result as Record<string, string>;
-}
-export async function saveSeoSettings(settings: Record<string, string>): Promise<void> {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  // Upsert: delete old settings row and insert new one
-  await db.delete(seoTasks).where(sql`${seoTasks.taskType} = 'app_settings'`);
-  await db.insert(seoTasks).values({
-    articleId: 0,
-    taskType: "app_settings",
-    status: "completed",
-    result: settings as any,
-    completedAt: new Date(),
-  });
+  if (existing.length > 0) {
+    await db
+      .update(articleAnalytics)
+      .set({ views: sql`${articleAnalytics.views} + 1` })
+      .where(eq(articleAnalytics.id, existing[0].id));
+  } else {
+    await db.insert(articleAnalytics).values({ articleId, date: new Date(), views: 1, clicks: 0 });
+  }
 }

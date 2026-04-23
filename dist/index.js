@@ -217,54 +217,53 @@ __export(db_exports, {
   createCalendarEvent: () => createCalendarEvent,
   createCategory: () => createCategory,
   createCompetitor: () => createCompetitor,
-  createInternalLink: () => createInternalLink,
   createKeyword: () => createKeyword,
-  createSeoTask: () => createSeoTask,
-  deactivateUser: () => deactivateUser,
+  createUser: () => createUser,
   deleteArticle: () => deleteArticle,
-  deleteCalendarEvent: () => deleteCalendarEvent,
-  deleteCompetitor: () => deleteCompetitor,
-  deleteInternalLink: () => deleteInternalLink,
-  deleteKeyword: () => deleteKeyword,
-  getAllCategories: () => getAllCategories,
+  getAllArticles: () => getAllArticles,
   getAllUsers: () => getAllUsers,
-  getArticleAnalytics: () => getArticleAnalytics,
   getArticleById: () => getArticleById,
-  getArticleVersions: () => getArticleVersions,
-  getArticles: () => getArticles,
-  getAuditLog: () => getAuditLog,
+  getArticleBySlug: () => getArticleBySlug,
+  getAuditLogs: () => getAuditLogs,
   getCalendarEvents: () => getCalendarEvents,
+  getCategories: () => getCategories,
   getCompetitors: () => getCompetitors,
   getDashboardStats: () => getDashboardStats,
   getDb: () => getDb,
-  getInternalLinks: () => getInternalLinks,
   getKeywords: () => getKeywords,
+  getPublishedArticles: () => getPublishedArticles,
   getSeoSettings: () => getSeoSettings,
   getTopArticlesByPerformance: () => getTopArticlesByPerformance,
-  getUserByOpenId: () => getUserByOpenId,
+  getUserByEmail: () => getUserByEmail,
+  getUserById: () => getUserById,
   logAudit: () => logAudit,
-  reactivateUser: () => reactivateUser,
-  recordAnalytics: () => recordAnalytics,
-  saveArticleVersion: () => saveArticleVersion,
+  recordArticleView: () => recordArticleView,
   saveSeoSettings: () => saveSeoSettings,
+  searchArticles: () => searchArticles,
   updateArticle: () => updateArticle,
-  updateCalendarEvent: () => updateCalendarEvent,
-  updateCompetitor: () => updateCompetitor,
   updateKeyword: () => updateKeyword,
-  updateSeoTask: () => updateSeoTask,
-  updateUserRole: () => updateUserRole,
+  updateUser: () => updateUser,
   upsertUser: () => upsertUser
 });
 import { and, desc, eq, like, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
+  if (!_db) {
+    if (!process.env.DATABASE_URL) {
+      console.error("[Database] DATABASE_URL is not set!");
+      return null;
+    }
     try {
-      const client = postgres(process.env.DATABASE_URL);
+      console.log("[Database] Connecting to:", process.env.DATABASE_URL.split("@")[1] || "unknown");
+      const client = postgres(process.env.DATABASE_URL, {
+        connect_timeout: 10,
+        idle_timeout: 30
+      });
       _db = drizzle(client);
+      console.log("[Database] Connected successfully");
     } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
+      console.error("[Database] Failed to connect:", error);
       _db = null;
     }
   }
@@ -276,223 +275,182 @@ async function upsertUser(user) {
   if (!db) return;
   await db.insert(users).values(user).onConflictDoUpdate({
     target: users.openId,
-    set: {
-      name: user.name,
-      email: user.email,
-      loginMethod: user.loginMethod,
-      role: user.role,
-      lastSignedIn: user.lastSignedIn || /* @__PURE__ */ new Date(),
-      updatedAt: /* @__PURE__ */ new Date()
-    }
+    set: { email: user.email, name: user.name, role: user.role, isActive: user.isActive }
   });
 }
-async function getUserByOpenId(openId) {
+async function getUserByEmail(email) {
   const db = await getDb();
-  if (!db) return void 0;
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
-  return result.length > 0 ? result[0] : void 0;
+  if (!db) return null;
+  const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  return result[0] || null;
+}
+async function getUserById(id) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
+  return result[0] || null;
+}
+async function createUser(email, passwordHash, name = "") {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.insert(users).values({
+    email,
+    passwordHash,
+    name,
+    openId: `local_${email}`,
+    role: "user",
+    isActive: true
+  }).returning({ id: users.id, email: users.email });
+  return result[0] || null;
+}
+async function updateUser(id, updates) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users).set(updates).where(eq(users.id, id));
 }
 async function getAllUsers() {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(users).orderBy(desc(users.createdAt));
+  return db.select().from(users);
 }
-async function updateUserRole(userId, role) {
+async function createArticle(article) {
   const db = await getDb();
-  if (!db) return;
-  await db.update(users).set({ role }).where(eq(users.id, userId));
-}
-async function getAllCategories() {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select().from(categories).orderBy(categories.name);
-}
-async function createCategory(data) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.insert(categories).values(data);
-}
-async function getArticles(opts) {
-  const db = await getDb();
-  if (!db) return { items: [], total: 0 };
-  const conditions = [];
-  if (opts?.status) conditions.push(eq(articles.status, opts.status));
-  if (opts?.categoryId) conditions.push(eq(articles.categoryId, opts.categoryId));
-  if (opts?.search) {
-    conditions.push(
-      or(
-        like(articles.title, `%${opts.search}%`),
-        like(articles.targetKeyword, `%${opts.search}%`)
-      )
-    );
-  }
-  const where = conditions.length > 0 ? and(...conditions) : void 0;
-  const limit = opts?.limit ?? 20;
-  const offset = opts?.offset ?? 0;
-  const [items, countResult] = await Promise.all([
-    db.select().from(articles).where(where).orderBy(desc(articles.updatedAt)).limit(limit).offset(offset),
-    db.select({ count: sql`count(*)` }).from(articles).where(where)
-  ]);
-  return { items, total: Number(countResult[0]?.count ?? 0) };
+  if (!db) return null;
+  const result = await db.insert(articles).values(article).returning({ id: articles.id });
+  return result[0] || null;
 }
 async function getArticleById(id) {
   const db = await getDb();
-  if (!db) return void 0;
+  if (!db) return null;
   const result = await db.select().from(articles).where(eq(articles.id, id)).limit(1);
-  return result[0];
+  return result[0] || null;
 }
-async function createArticle(data) {
+async function getArticleBySlug(slug) {
   const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  const result = await db.insert(articles).values(data).returning({ id: articles.id });
-  return result[0]?.id;
+  if (!db) return null;
+  const result = await db.select().from(articles).where(eq(articles.slug, slug)).limit(1);
+  return result[0] || null;
 }
-async function updateArticle(id, data) {
+async function getPublishedArticles(limit = 20, offset = 0) {
   const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.update(articles).set(data).where(eq(articles.id, id));
+  if (!db) return [];
+  return db.select().from(articles).where(eq(articles.status, "published")).orderBy(desc(articles.publishedAt)).limit(limit).offset(offset);
+}
+async function getAllArticles(limit = 100, offset = 0) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(articles).orderBy(desc(articles.updatedAt)).limit(limit).offset(offset);
+}
+async function updateArticle(id, updates) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(articles).set({ ...updates, updatedAt: /* @__PURE__ */ new Date() }).where(eq(articles.id, id));
 }
 async function deleteArticle(id) {
   const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
+  if (!db) return;
   await db.delete(articles).where(eq(articles.id, id));
 }
-async function getArticleVersions(articleId) {
+async function searchArticles(query) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(articleVersions).where(eq(articleVersions.articleId, articleId)).orderBy(desc(articleVersions.version));
-}
-async function saveArticleVersion(data) {
-  const db = await getDb();
-  if (!db) return;
-  await db.insert(articleVersions).values(data);
-}
-async function getKeywords(opts) {
-  const db = await getDb();
-  if (!db) return [];
-  const conditions = [];
-  if (opts?.search) conditions.push(like(keywords.keyword, `%${opts.search}%`));
-  const where = conditions.length > 0 ? and(...conditions) : void 0;
-  return db.select().from(keywords).where(where).orderBy(desc(keywords.searchVolume)).limit(opts?.limit ?? 100);
-}
-async function createKeyword(data) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.insert(keywords).values(data);
-}
-async function updateKeyword(id, data) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.update(keywords).set(data).where(eq(keywords.id, id));
-}
-async function deleteKeyword(id) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.delete(keywords).where(eq(keywords.id, id));
-}
-async function getCompetitors() {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select().from(competitors).orderBy(desc(competitors.authorityScore));
-}
-async function createCompetitor(data) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.insert(competitors).values(data);
-}
-async function updateCompetitor(id, data) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.update(competitors).set(data).where(eq(competitors.id, id));
-}
-async function deleteCompetitor(id) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.delete(competitors).where(eq(competitors.id, id));
-}
-async function getCalendarEvents(opts) {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select().from(contentCalendar).orderBy(contentCalendar.scheduledDate);
-}
-async function createCalendarEvent(data) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  const result = await db.insert(contentCalendar).values(data).returning({ id: contentCalendar.id });
-  return result[0]?.id;
-}
-async function updateCalendarEvent(id, data) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.update(contentCalendar).set(data).where(eq(contentCalendar.id, id));
-}
-async function deleteCalendarEvent(id) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.delete(contentCalendar).where(eq(contentCalendar.id, id));
-}
-async function getInternalLinks(articleId) {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select().from(internalLinks).where(eq(internalLinks.fromArticleId, articleId));
-}
-async function createInternalLink(data) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.insert(internalLinks).values(data);
-}
-async function deleteInternalLink(id) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.delete(internalLinks).where(eq(internalLinks.id, id));
-}
-async function createSeoTask(data) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.insert(seoTasks).values({ ...data, status: "pending" });
-}
-async function updateSeoTask(id, data) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.update(seoTasks).set(data).where(eq(seoTasks.id, id));
-}
-async function getArticleAnalytics(articleId) {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select().from(articleAnalytics).where(eq(articleAnalytics.articleId, articleId)).orderBy(desc(articleAnalytics.date));
-}
-async function recordAnalytics(data) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.insert(articleAnalytics).values(data);
+  return db.select().from(articles).where(
+    or(
+      like(articles.title, `%${query}%`),
+      like(articles.content, `%${query}%`),
+      like(articles.slug, `%${query}%`)
+    )
+  ).limit(20);
 }
 async function getDashboardStats() {
   const db = await getDb();
-  if (!db) return { totalArticles: 0, publishedArticles: 0, indexedArticles: 0, keywordCount: 0, topKeywords: [], recentArticles: [] };
-  const totalArticles = await db.select({ count: sql`count(*)` }).from(articles);
-  const publishedArticles = await db.select({ count: sql`count(*)` }).from(articles).where(eq(articles.status, "published"));
-  const indexedArticles = await db.select({ count: sql`count(*)` }).from(articles).where(eq(articles.indexed, true));
+  if (!db) return null;
+  const total = await db.select({ count: sql`count(*)` }).from(articles);
+  const published = await db.select({ count: sql`count(*)` }).from(articles).where(eq(articles.status, "published"));
+  const indexed = await db.select({ count: sql`count(*)` }).from(articles).where(eq(articles.isIndexed, true));
   const keywordCount = await db.select({ count: sql`count(*)` }).from(keywords);
-  const topKeywords = await db.select().from(keywords).orderBy(keywords.currentRank).limit(10);
-  const recentArticles = await db.select().from(articles).orderBy(desc(articles.updatedAt)).limit(5);
+  const topKeywords = await db.select({ keyword: keywords.keyword, searchVolume: keywords.searchVolume }).from(keywords).orderBy(desc(keywords.searchVolume)).limit(5);
+  const recentArticles = await db.select({ id: articles.id, title: articles.title, status: articles.status, publishedAt: articles.publishedAt }).from(articles).orderBy(desc(articles.publishedAt)).limit(5);
   return {
-    totalArticles: Number(totalArticles[0]?.count ?? 0),
-    publishedArticles: Number(publishedArticles[0]?.count ?? 0),
-    indexedArticles: Number(indexedArticles[0]?.count ?? 0),
-    keywordCount: Number(keywordCount[0]?.count ?? 0),
+    totalArticles: total[0]?.count || 0,
+    publishedArticles: published[0]?.count || 0,
+    indexedArticles: indexed[0]?.count || 0,
+    keywordCount: keywordCount[0]?.count || 0,
     topKeywords,
     recentArticles
   };
 }
-async function logAudit(data) {
+async function createKeyword(keyword) {
   const db = await getDb();
-  if (!db) return;
-  await db.insert(auditLog).values(data);
+  if (!db) return null;
+  const result = await db.insert(keywords).values(keyword).returning({ id: keywords.id });
+  return result[0] || null;
 }
-async function getAuditLog(limit = 50) {
+async function getKeywords(limit = 100) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(limit);
+  return db.select().from(keywords).orderBy(desc(keywords.searchVolume)).limit(limit);
+}
+async function updateKeyword(id, updates) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(keywords).set(updates).where(eq(keywords.id, id));
+}
+async function createCategory(category) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.insert(categories).values(category).returning({ id: categories.id });
+  return result[0] || null;
+}
+async function getCategories() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(categories);
+}
+async function createCompetitor(competitor) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.insert(competitors).values(competitor).returning({ id: competitors.id });
+  return result[0] || null;
+}
+async function getCompetitors() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(competitors);
+}
+async function logAudit(log) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(auditLog).values({ ...log, timestamp: /* @__PURE__ */ new Date() });
+}
+async function getAuditLogs(limit = 100) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(auditLog).orderBy(desc(auditLog.timestamp)).limit(limit);
+}
+async function getSeoSettings() {
+  if (_settings) return _settings;
+  const db = await getDb();
+  if (!db) return null;
+  _settings = {};
+  return _settings;
+}
+async function saveSeoSettings(settings) {
+  _settings = settings;
+}
+async function createCalendarEvent(event) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.insert(contentCalendar).values(event).returning({ id: contentCalendar.id });
+  return result[0] || null;
+}
+async function getCalendarEvents(startDate, endDate) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(contentCalendar).where(and(
+    sql`${contentCalendar.scheduledDate} >= ${startDate}`,
+    sql`${contentCalendar.scheduledDate} <= ${endDate}`
+  ));
 }
 async function getTopArticlesByPerformance() {
   const db = await getDb();
@@ -500,47 +458,28 @@ async function getTopArticlesByPerformance() {
   return db.select({
     id: articles.id,
     title: articles.title,
-    targetKeyword: articles.targetKeyword,
-    views: articles.views,
-    seoScore: articles.seoScore,
-    status: articles.status
-  }).from(articles).where(eq(articles.status, "published")).orderBy(desc(articles.views)).limit(10);
+    views: articleAnalytics.views,
+    clicks: articleAnalytics.clicks
+  }).from(articles).leftJoin(articleAnalytics, eq(articles.id, articleAnalytics.articleId)).orderBy(desc(articleAnalytics.views)).limit(10);
 }
-async function deactivateUser(userId) {
+async function recordArticleView(articleId) {
   const db = await getDb();
   if (!db) return;
-  await db.update(users).set({ role: "viewer" }).where(eq(users.id, userId));
+  const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+  const existing = await db.select().from(articleAnalytics).where(and(eq(articleAnalytics.articleId, articleId), sql`DATE(${articleAnalytics.date}) = ${today}`)).limit(1);
+  if (existing.length > 0) {
+    await db.update(articleAnalytics).set({ views: sql`${articleAnalytics.views} + 1` }).where(eq(articleAnalytics.id, existing[0].id));
+  } else {
+    await db.insert(articleAnalytics).values({ articleId, date: /* @__PURE__ */ new Date(), views: 1, clicks: 0 });
+  }
 }
-async function reactivateUser(userId, role = "user") {
-  const db = await getDb();
-  if (!db) return;
-  await db.update(users).set({ role }).where(eq(users.id, userId));
-}
-async function getSeoSettings() {
-  const db = await getDb();
-  if (!db) return null;
-  const row = await db.select().from(seoTasks).where(sql`${seoTasks.taskType} = 'app_settings'`).orderBy(desc(seoTasks.createdAt)).limit(1);
-  if (!row[0]?.result) return null;
-  return row[0].result;
-}
-async function saveSeoSettings(settings) {
-  const db = await getDb();
-  if (!db) throw new Error("DB unavailable");
-  await db.delete(seoTasks).where(sql`${seoTasks.taskType} = 'app_settings'`);
-  await db.insert(seoTasks).values({
-    articleId: 0,
-    taskType: "app_settings",
-    status: "completed",
-    result: settings,
-    completedAt: /* @__PURE__ */ new Date()
-  });
-}
-var _db;
+var _db, _settings;
 var init_db = __esm({
   "server/db.ts"() {
     "use strict";
     init_schema();
     _db = null;
+    _settings = null;
   }
 });
 
@@ -1013,7 +952,7 @@ var appRouter = router({
       search: z2.string().optional(),
       limit: z2.number().min(1).max(100).default(20),
       offset: z2.number().min(0).default(0)
-    })).query(async ({ input }) => getArticles(input)),
+    })).query(async ({ input }) => (void 0)(input)),
     byId: protectedProcedure.input(z2.object({ id: z2.number() })).query(async ({ input }) => {
       const article = await getArticleById(input.id);
       if (!article) throw new TRPCError3({ code: "NOT_FOUND" });
@@ -1082,7 +1021,7 @@ var appRouter = router({
       const { id, ...data } = input;
       const existing = await getArticleById(id);
       if (!existing) throw new TRPCError3({ code: "NOT_FOUND" });
-      await saveArticleVersion({
+      await (void 0)({
         articleId: id,
         version: Date.now(),
         title: existing.title,
@@ -1128,10 +1067,10 @@ var appRouter = router({
       await logAudit({ userId: ctx.user.id, action: `bulk_${input.action}`, entityType: "article", newValues: { ids: input.ids } });
       return { success: true, count: input.ids.length };
     }),
-    versions: protectedProcedure.input(z2.object({ articleId: z2.number() })).query(async ({ input }) => getArticleVersions(input.articleId)),
+    versions: protectedProcedure.input(z2.object({ articleId: z2.number() })).query(async ({ input }) => (void 0)(input.articleId)),
     restoreVersion: protectedProcedure.input(z2.object({ articleId: z2.number(), versionId: z2.number() })).mutation(async ({ input, ctx }) => {
       requireRole(ctx.user.role, ["admin", "editor"]);
-      const versions = await getArticleVersions(input.articleId);
+      const versions = await (void 0)(input.articleId);
       const version = versions.find((v) => v.id === input.versionId);
       if (!version) throw new TRPCError3({ code: "NOT_FOUND" });
       await updateArticle(input.articleId, { content: version.content });
@@ -1253,7 +1192,7 @@ var appRouter = router({
       }
     }),
     generateSitemap: protectedProcedure.query(async () => {
-      const { items } = await getArticles({ status: "published", limit: 1e3 });
+      const { items } = await (void 0)({ status: "published", limit: 1e3 });
       const siteUrl = process.env.SITE_URL || "https://altyn-therapy.uz";
       const urls = items.map((a) => ({
         loc: `${siteUrl}/articles/${a.slug}`,
@@ -1271,7 +1210,7 @@ ${urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${u.lastmod}</lastmod><cha
   }),
   // ─── Categories ─────────────────────────────────────────────────────────────
   categories: router({
-    list: protectedProcedure.query(async () => getAllCategories()),
+    list: protectedProcedure.query(async () => (void 0)()),
     create: protectedProcedure.input(z2.object({ name: z2.string().min(1), slug: z2.string().optional(), description: z2.string().optional() })).mutation(async ({ input, ctx }) => {
       requireRole(ctx.user.role, ["admin", "editor"]);
       const slug = input.slug || generateSlug(input.name);
@@ -1315,7 +1254,7 @@ ${urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${u.lastmod}</lastmod><cha
     }),
     delete: protectedProcedure.input(z2.object({ id: z2.number() })).mutation(async ({ input, ctx }) => {
       requireRole(ctx.user.role, ["admin"]);
-      await deleteKeyword(input.id);
+      await (void 0)(input.id);
       return { success: true };
     })
   }),
@@ -1352,7 +1291,7 @@ ${urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${u.lastmod}</lastmod><cha
     })).mutation(async ({ input, ctx }) => {
       requireRole(ctx.user.role, ["admin", "editor"]);
       const { id, ...data } = input;
-      await updateCompetitor(id, {
+      await (void 0)(id, {
         ...data,
         topKeywords: data.topKeywords ? JSON.stringify(data.topKeywords) : void 0
       });
@@ -1360,7 +1299,7 @@ ${urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${u.lastmod}</lastmod><cha
     }),
     delete: protectedProcedure.input(z2.object({ id: z2.number() })).mutation(async ({ input, ctx }) => {
       requireRole(ctx.user.role, ["admin"]);
-      await deleteCompetitor(input.id);
+      await (void 0)(input.id);
       return { success: true };
     })
   }),
@@ -1392,24 +1331,24 @@ ${urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${u.lastmod}</lastmod><cha
     })).mutation(async ({ input, ctx }) => {
       requireRole(ctx.user.role, ["admin", "editor"]);
       const { id, ...data } = input;
-      await updateCalendarEvent(id, data);
+      await (void 0)(id, data);
       return { success: true };
     }),
     delete: protectedProcedure.input(z2.object({ id: z2.number() })).mutation(async ({ input, ctx }) => {
       requireRole(ctx.user.role, ["admin", "editor"]);
-      await deleteCalendarEvent(input.id);
+      await (void 0)(input.id);
       return { success: true };
     })
   }),
   // ─── Internal Links ──────────────────────────────────────────────────────────
   internalLinks: router({
-    list: protectedProcedure.input(z2.object({ articleId: z2.number() })).query(async ({ input }) => getInternalLinks(input.articleId)),
+    list: protectedProcedure.input(z2.object({ articleId: z2.number() })).query(async ({ input }) => (void 0)(input.articleId)),
     listAll: protectedProcedure.query(async () => {
       const database = await getDb();
       if (!database) return [];
-      const { internalLinks: internalLinks2, articles: articles2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { internalLinks: internalLinks3, articles: articles2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eqOp } = await import("drizzle-orm");
-      return database.select().from(internalLinks2).limit(200);
+      return database.select().from(internalLinks3).limit(200);
     }),
     create: protectedProcedure.input(z2.object({
       fromArticleId: z2.number(),
@@ -1418,12 +1357,12 @@ ${urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${u.lastmod}</lastmod><cha
       linkType: z2.enum(["primary", "secondary", "contextual"]).optional()
     })).mutation(async ({ input, ctx }) => {
       requireRole(ctx.user.role, ["admin", "editor"]);
-      await createInternalLink(input);
+      await (void 0)(input);
       return { success: true };
     }),
     delete: protectedProcedure.input(z2.object({ id: z2.number() })).mutation(async ({ input, ctx }) => {
       requireRole(ctx.user.role, ["admin", "editor"]);
-      await deleteInternalLink(input.id);
+      await (void 0)(input.id);
       return { success: true };
     })
   }),
@@ -1439,26 +1378,26 @@ ${urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${u.lastmod}</lastmod><cha
     })).mutation(async ({ input, ctx }) => {
       requireRole(ctx.user.role, ["admin"]);
       if (input.userId === ctx.user.id) throw new TRPCError3({ code: "BAD_REQUEST", message: "\u041D\u0435\u043B\u044C\u0437\u044F \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u0441\u0432\u043E\u044E \u0440\u043E\u043B\u044C" });
-      await updateUserRole(input.userId, input.role);
+      await (void 0)(input.userId, input.role);
       await logAudit({ userId: ctx.user.id, action: "update_role", entityType: "user", entityId: input.userId, newValues: { role: input.role } });
       return { success: true };
     }),
     deactivateUser: protectedProcedure.input(z2.object({ userId: z2.number() })).mutation(async ({ input, ctx }) => {
       requireRole(ctx.user.role, ["admin"]);
       if (input.userId === ctx.user.id) throw new TRPCError3({ code: "BAD_REQUEST", message: "\u041D\u0435\u043B\u044C\u0437\u044F \u0434\u0435\u0430\u043A\u0442\u0438\u0432\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0441\u0435\u0431\u044F" });
-      await deactivateUser(input.userId);
+      await (void 0)(input.userId);
       await logAudit({ userId: ctx.user.id, action: "deactivate_user", entityType: "user", entityId: input.userId });
       return { success: true };
     }),
     reactivateUser: protectedProcedure.input(z2.object({ userId: z2.number(), role: z2.enum(["user", "editor", "viewer"]).default("user") })).mutation(async ({ input, ctx }) => {
       requireRole(ctx.user.role, ["admin"]);
-      await reactivateUser(input.userId, input.role);
+      await (void 0)(input.userId, input.role);
       await logAudit({ userId: ctx.user.id, action: "reactivate_user", entityType: "user", entityId: input.userId });
       return { success: true };
     }),
     auditLog: protectedProcedure.input(z2.object({ limit: z2.number().default(50) })).query(async ({ ctx, input }) => {
       requireRole(ctx.user.role, ["admin"]);
-      return getAuditLog(input.limit);
+      return (void 0)(input.limit);
     })
   }),
   // ─── Settings ────────────────────────────────────────────────────────────────
