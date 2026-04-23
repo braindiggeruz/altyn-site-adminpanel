@@ -36,6 +36,11 @@ async function startServer() {
   const uploadsDir = path.join(process.cwd(), "uploads");
   app.use("/uploads", express.static(uploadsDir));
 
+  // Health check endpoint
+  app.get("/api/health", (_req, res) => {
+    res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
   // tRPC API
   app.use(
     "/api/trpc",
