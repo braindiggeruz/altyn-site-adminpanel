@@ -33,6 +33,8 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useTranslation } from "react-i18next";
+import { trpc } from "@/lib/trpc";
 
 function TrendIcon({ trend }: { trend: string | null }) {
   if (trend === "up") return <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400" />;
@@ -54,6 +56,7 @@ function DifficultyBar({ value }: { value: number | null }) {
 }
 
 export default function Keywords() {
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [editKw, setEditKw] = useState<{ id: number; currentRank: string; trend: "up" | "down" | "stable" } | null>(null);
@@ -73,24 +76,24 @@ export default function Keywords() {
       utils.keywords.list.invalidate();
       setAddOpen(false);
       setNewKw({ keyword: "", searchVolume: "", keywordDifficulty: "", cpc: "", trend: "stable" });
-      toast.success("Ключевое слово добавлено");
+      toast.success(t("keywords.createSuccess", "Ключевое слово добавлено"));
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(t("common.error", "Ошибка") + ": " + e.message),
   });
 
   const deleteMutation = trpc.keywords.delete.useMutation({
     onSuccess: () => {
       utils.keywords.list.invalidate();
-      toast.success("Ключевое слово удалено");
+      toast.success(t("keywords.deleteSuccess", "Ключевое слово удалено"));
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(t("common.error", "Ошибка") + ": " + e.message),
   });
 
   const updateMutation = trpc.keywords.update.useMutation({
     onSuccess: () => {
       utils.keywords.list.invalidate();
       setEditKw(null);
-      toast.success("Ключевое слово обновлено");
+      toast.success(t("keywords.updateSuccess", "Ключевое слово обновлено"));
     },
     onError: (e: any) => toast.error(e.message),
   });

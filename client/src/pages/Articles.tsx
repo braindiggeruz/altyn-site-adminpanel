@@ -33,6 +33,8 @@ import {
   Zap,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useTranslation } from "react-i18next";
+import { trpc } from "@/lib/trpc";
 
 function SeoScoreBadge({ score }: { score: number | null }) {
   if (score === null || score === undefined) return <span className="text-muted-foreground text-xs">—</span>;
@@ -44,7 +46,13 @@ function SeoScoreBadge({ score }: { score: number | null }) {
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, t }: { status: string; t: any }) {
+  const statusMap: Record<string, string> = {
+    published: t("articles.published", "Published"),
+    draft: t("articles.draft", "Draft"),
+    scheduled: t("articles.scheduled", "Scheduled"),
+    archived: t("articles.archived", "Archived"),
+  };
   const styles: Record<string, string> = {
     published: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
     draft: "text-slate-400 bg-slate-400/10 border-slate-400/20",
@@ -53,13 +61,14 @@ function StatusBadge({ status }: { status: string }) {
   };
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border ${styles[status] || styles.draft}`}>
-      {status}
+      {statusMap[status] || status}
     </span>
   );
 }
 
 export default function Articles() {
   const [, setLocation] = useLocation();
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selected, setSelected] = useState<number[]>([]);
@@ -136,11 +145,11 @@ export default function Articles() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="published">Published</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="scheduled">Scheduled</SelectItem>
-                <SelectItem value="archived">Archived</SelectItem>
+                <SelectItem value="all">{t("common.filter", "All Status")}</SelectItem>
+                <SelectItem value="published">{t("articles.published", "Published")}</SelectItem>
+                <SelectItem value="draft">{t("articles.draft", "Draft")}</SelectItem>
+                <SelectItem value="scheduled">{t("articles.scheduled", "Scheduled")}</SelectItem>
+                <SelectItem value="archived">{t("articles.archived", "Archived")}</SelectItem>
               </SelectContent>
             </Select>
             {selected.length > 0 && (
@@ -183,12 +192,12 @@ export default function Articles() {
                       onCheckedChange={toggleAll}
                     />
                   </th>
-                  <th className="p-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Article</th>
-                  <th className="p-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Keyword</th>
-                  <th className="p-4 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden lg:table-cell">SEO</th>
-                  <th className="p-4 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden lg:table-cell">Rank</th>
-                  <th className="p-4 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Views</th>
-                  <th className="p-4 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                  <th className="p-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("articles.articleTitle", "Article")}</th>
+                  <th className="p-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">{t("articles.targetKeyword", "Keyword")}</th>
+                  <th className="p-4 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden lg:table-cell">{t("articles.seoScore", "SEO")}</th>
+                  <th className="p-4 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden lg:table-cell">{t("keywords.currentRank", "Rank")}</th>
+                  <th className="p-4 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">{t("articles.views", "Views")}</th>
+                  <th className="p-4 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("articles.status", "Status")}</th>
                   <th className="p-4 w-10"></th>
                 </tr>
               </thead>
@@ -253,7 +262,7 @@ export default function Articles() {
                         </div>
                       </td>
                       <td className="p-4 text-center">
-                        <StatusBadge status={article.status} />
+                        <StatusBadge status={article.status} t={t} />
                       </td>
                       <td className="p-4">
                         <DropdownMenu>

@@ -29,6 +29,8 @@ import {
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useTranslation } from "react-i18next";
+import { trpc } from "@/lib/trpc";
 
 function KpiCard({
   title,
@@ -97,6 +99,7 @@ function StatusBadge({ status }: { status: string }) {
 export default function Dashboard() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
+  const { t } = useTranslation();
   const { data: stats, isLoading: statsLoading } = trpc.dashboard.stats.useQuery();
   const { data: traffic, isLoading: trafficLoading } = trpc.dashboard.trafficChart.useQuery();
 
@@ -164,12 +167,12 @@ export default function Dashboard() {
       </div>
 
       {/* Traffic Chart + Top Keywords */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="lg:col-span-2 bg-card border-border/50">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 w-full">
+        <Card className="lg:col-span-2 bg-card border-border/50 w-full">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-primary" />
-              Traffic Overview (30 days)
+              {t("dashboard.trafficChart", "Traffic Overview (30 days)")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -205,11 +208,11 @@ export default function Dashboard() {
         </Card>
 
         {/* Top Keywords */}
-        <Card className="bg-card border-border/50">
+        <Card className="bg-card border-border/50 w-full">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <Search className="w-4 h-4 text-primary" />
-              Top Ranking Keywords
+              {t("dashboard.topKeywords", "Top Ranking Keywords")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -220,7 +223,7 @@ export default function Dashboard() {
                 <div key={kw.id} className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-accent/40 transition-colors">
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-medium truncate">{kw.keyword}</p>
-                    <p className="text-[10px] text-muted-foreground">Vol: {kw.searchVolume?.toLocaleString() ?? "—"}</p>
+                    <p className="text-[10px] text-muted-foreground">{t("keywords.searchVolume", "Vol")}: {kw.searchVolume?.toLocaleString() ?? "—"}</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {kw.trend === "up" && <ArrowUpRight className="w-3 h-3 text-emerald-400" />}
@@ -233,22 +236,22 @@ export default function Dashboard() {
               ))
             )}
             <Button variant="ghost" size="sm" className="w-full mt-2 text-xs" onClick={() => setLocation("/keywords")}>
-              View all keywords <ArrowUpRight className="w-3 h-3 ml-1" />
+              {t("common.search", "View all keywords")} <ArrowUpRight className="w-3 h-3 ml-1" />
             </Button>
           </CardContent>
         </Card>
       </div>
 
       {/* Recent Articles */}
-      <Card className="bg-card border-border/50">
+      <Card className="bg-card border-border/50 w-full">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <BookOpen className="w-4 h-4 text-primary" />
-              Recent Articles
+              {t("dashboard.recentActivity", "Recent Articles")}
             </CardTitle>
             <Button variant="ghost" size="sm" className="text-xs" onClick={() => setLocation("/articles")}>
-              View all <ArrowUpRight className="w-3 h-3 ml-1" />
+              {t("common.search", "View all")} <ArrowUpRight className="w-3 h-3 ml-1" />
             </Button>
           </div>
         </CardHeader>
@@ -265,7 +268,7 @@ export default function Dashboard() {
                 >
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{article.title}</p>
-                    <p className="text-xs text-muted-foreground truncate">{article.targetKeyword || "No target keyword"}</p>
+                    <p className="text-xs text-muted-foreground truncate">{article.targetKeyword || t("articles.targetKeyword", "No target keyword")}</p>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
