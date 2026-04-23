@@ -1,16 +1,15 @@
-import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { TRPCClientError } from "@trpc/client";
 import { useCallback, useEffect, useMemo } from "react";
+import { useLocation } from "wouter";
 
 type UseAuthOptions = {
   redirectOnUnauthenticated?: boolean;
-  redirectPath?: string;
 };
 
 export function useAuth(options?: UseAuthOptions) {
-  const { redirectOnUnauthenticated = false, redirectPath = getLoginUrl() } =
-    options ?? {};
+  const { redirectOnUnauthenticated = true } = options ?? {};
+  const [location, setLocation] = useLocation();
   const utils = trpc.useUtils();
 
   const meQuery = trpc.auth.me.useQuery(undefined, {
@@ -38,12 +37,13 @@ export function useAuth(options?: UseAuthOptions) {
     } finally {
       utils.auth.me.setData(undefined, null);
       await utils.auth.me.invalidate();
+      setLocation("/login");
     }
-  }, [logoutMutation, utils]);
+  }, [logoutMutation, utils, setLocation]);
 
   const state = useMemo(() => {
     localStorage.setItem(
-      "manus-runtime-user-info",
+      "altyn-user-info",
       JSON.stringify(meQuery.data)
     );
     return {
@@ -65,15 +65,18 @@ export function useAuth(options?: UseAuthOptions) {
     if (meQuery.isLoading || logoutMutation.isPending) return;
     if (state.user) return;
     if (typeof window === "undefined") return;
-    if (window.location.pathname === redirectPath) return;
+    
+    // Don't redirect if already on login/register pages
+    if (location === "/login" || location === "/register") return;
 
-    window.location.href = redirectPath
+    setLocation("/login");
   }, [
     redirectOnUnauthenticated,
-    redirectPath,
     logoutMutation.isPending,
     meQuery.isLoading,
     state.user,
+    location,
+    setLocation,
   ]);
 
   return {

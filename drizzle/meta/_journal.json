@@ -1,26 +1,12 @@
 {
   "version": "7",
-  "dialect": "mysql",
+  "dialect": "postgresql",
   "entries": [
     {
       "idx": 0,
-      "version": "5",
-      "when": 1776939327961,
-      "tag": "0000_fresh_iron_monger",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "5",
-      "when": 1776939552050,
-      "tag": "0001_superb_shinko_yamashiro",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "5",
-      "when": 1776942604060,
-      "tag": "0002_fine_war_machine",
+      "version": "7",
+      "when": 1776948499913,
+      "tag": "0000_rich_hercules",
       "breakpoints": true
     }
   ]

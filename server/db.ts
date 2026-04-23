@@ -1,5 +1,6 @@
 import { and, desc, eq, like, or, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import {
   articleAnalytics,
   articleVersions,
@@ -26,7 +27,8 @@ let _db: ReturnType<typeof drizzle> | null = null;
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      const client = postgres(process.env.DATABASE_URL);
+      _db = drizzle(client);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
@@ -41,34 +43,21 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   const db = await getDb();
   if (!db) return;
 
-  const values: InsertUser = { openId: user.openId };
-  const updateSet: Record<string, unknown> = {};
-  const textFields = ["name", "email", "loginMethod"] as const;
-
-  textFields.forEach((field) => {
-    const value = user[field];
-    if (value === undefined) return;
-    const normalized = value ?? null;
-    values[field] = normalized;
-    updateSet[field] = normalized;
-  });
-
-  if (user.lastSignedIn !== undefined) {
-    values.lastSignedIn = user.lastSignedIn;
-    updateSet.lastSignedIn = user.lastSignedIn;
-  }
-  if (user.role !== undefined) {
-    values.role = user.role;
-    updateSet.role = user.role;
-  } else if (user.openId === ENV.ownerOpenId) {
-    values.role = "admin";
-    updateSet.role = "admin";
-  }
-
-  if (!values.lastSignedIn) values.lastSignedIn = new Date();
-  if (Object.keys(updateSet).length === 0) updateSet.lastSignedIn = new Date();
-
-  await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
+  // PostgreSQL upsert using ON CONFLICT
+  await db
+    .insert(users)
+    .values(user)
+    .onConflictDoUpdate({
+      target: users.openId,
+      set: {
+        name: user.name,
+        email: user.email,
+        loginMethod: user.loginMethod,
+        role: user.role,
+        lastSignedIn: user.lastSignedIn || new Date(),
+        updatedAt: new Date(),
+      },
+    });
 }
 
 export async function getUserByOpenId(openId: string) {
@@ -154,8 +143,8 @@ export async function getArticleById(id: number) {
 export async function createArticle(data: InsertArticle) {
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");
-  const [result] = await db.insert(articles).values(data).$returningId();
-  return result?.id;
+  const result = await db.insert(articles).values(data).returning({ id: articles.id });
+  return result[0]?.id;
 }
 
 export async function updateArticle(id: number, data: Partial<InsertArticle>) {
@@ -262,8 +251,8 @@ export async function getCalendarEvents(opts?: { year?: number; month?: number }
 export async function createCalendarEvent(data: InsertCalendarEvent) {
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");
-  const [result] = await db.insert(contentCalendar).values(data).$returningId();
-  return result?.id;
+  const result = await db.insert(contentCalendar).values(data).returning({ id: contentCalendar.id });
+  return result[0]?.id;
 }
 
 export async function updateCalendarEvent(id: number, data: Partial<InsertCalendarEvent>) {
@@ -334,34 +323,51 @@ export async function getArticleAnalytics(articleId: number) {
     .select()
     .from(articleAnalytics)
     .where(eq(articleAnalytics.articleId, articleId))
-    .orderBy(desc(articleAnalytics.date))
-    .limit(30);
+    .orderBy(desc(articleAnalytics.date));
 }
 
+export async function recordAnalytics(data: {
+  articleId: number;
+  date: Date;
+  views?: number;
+  clicks?: number;
+  impressions?: number;
+  avgPosition?: number;
+  ctr?: number;
+  avgTimeOnPage?: number;
+  bounceRate?: number;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.insert(articleAnalytics).values(data as any);
+}
+
+// ─── Dashboard Stats ──────────────────────────────────────────────────────────
 export async function getDashboardStats() {
   const db = await getDb();
-  if (!db) return null;
+  if (!db) return { totalArticles: 0, publishedArticles: 0, indexedArticles: 0, keywordCount: 0, topKeywords: [], recentArticles: [] };
 
-  const [totalArticles, publishedArticles, indexedArticles, keywordCount] = await Promise.all([
-    db.select({ count: sql<number>`count(*)` }).from(articles),
-    db.select({ count: sql<number>`count(*)` }).from(articles).where(eq(articles.status, "published")),
-    db.select({ count: sql<number>`count(*)` }).from(articles).where(eq(articles.indexed, true)),
-    db.select({ count: sql<number>`count(*)` }).from(keywords),
-  ]);
+  const totalArticles = await db.select({ count: sql<number>`count(*)` }).from(articles);
+  const publishedArticles = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(articles)
+    .where(eq(articles.status, "published"));
+  const indexedArticles = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(articles)
+    .where(eq(articles.indexed, true));
+  const keywordCount = await db.select({ count: sql<number>`count(*)` }).from(keywords);
 
   const topKeywords = await db
     .select()
     .from(keywords)
-    .where(sql`${keywords.currentRank} IS NOT NULL`)
     .orderBy(keywords.currentRank)
     .limit(10);
-
   const recentArticles = await db
     .select()
     .from(articles)
     .orderBy(desc(articles.updatedAt))
     .limit(5);
-
   return {
     totalArticles: Number(totalArticles[0]?.count ?? 0),
     publishedArticles: Number(publishedArticles[0]?.count ?? 0),
@@ -371,7 +377,6 @@ export async function getDashboardStats() {
     recentArticles,
   };
 }
-
 // ─── Audit Log ────────────────────────────────────────────────────────────────
 export async function logAudit(data: {
   userId: number;
@@ -386,13 +391,11 @@ export async function logAudit(data: {
   if (!db) return;
   await db.insert(auditLog).values(data as any);
 }
-
 export async function getAuditLog(limit = 50) {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(auditLog).orderBy(desc(auditLog.createdAt)).limit(limit);
 }
-
 export async function getTopArticlesByPerformance() {
   const db = await getDb();
   if (!db) return [];
@@ -410,7 +413,6 @@ export async function getTopArticlesByPerformance() {
     .orderBy(desc(articles.views))
     .limit(10);
 }
-
 // ─── User Deactivation ────────────────────────────────────────────────────────
 export async function deactivateUser(userId: number): Promise<void> {
   const db = await getDb();
@@ -418,13 +420,11 @@ export async function deactivateUser(userId: number): Promise<void> {
   // Store deactivation as a role change to "viewer" with audit trail
   await db.update(users).set({ role: "viewer" }).where(eq(users.id, userId));
 }
-
 export async function reactivateUser(userId: number, role: "user" | "admin" | "editor" | "viewer" = "user"): Promise<void> {
   const db = await getDb();
   if (!db) return;
   await db.update(users).set({ role }).where(eq(users.id, userId));
 }
-
 // ─── App Settings (robots.txt, SEO defaults stored as audit-log entries) ──────
 // We store settings as JSON in a dedicated seo_tasks row with taskType="settings"
 export async function getSeoSettings(): Promise<Record<string, string> | null> {
@@ -439,7 +439,6 @@ export async function getSeoSettings(): Promise<Record<string, string> | null> {
   if (!row[0]?.result) return null;
   return row[0].result as Record<string, string>;
 }
-
 export async function saveSeoSettings(settings: Record<string, string>): Promise<void> {
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");

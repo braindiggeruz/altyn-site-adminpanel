@@ -21,7 +21,7 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { getLoginUrl } from "@/const";
+
 import { useIsMobile } from "@/hooks/useMobile";
 import {
   BarChart3,
@@ -98,26 +98,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (loading) return <DashboardLayoutSkeleton />;
 
   if (!user) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="flex flex-col items-center gap-6 p-8 max-w-sm w-full">
-          <div className="w-14 h-14 rounded-2xl bg-primary/20 flex items-center justify-center">
-            <Zap className="w-7 h-7 text-primary" />
-          </div>
-          <div className="text-center">
-            <h1 className="text-2xl font-bold tracking-tight mb-2">ALTYN SEO Panel</h1>
-            <p className="text-sm text-muted-foreground">Sign in to access the admin dashboard</p>
-          </div>
-          <Button
-            onClick={() => { window.location.href = getLoginUrl(); }}
-            size="lg"
-            className="w-full"
-          >
-            Sign in with Manus
-          </Button>
-        </div>
-      </div>
-    );
+    return null; // useAuth hook handles redirect to /login
   }
 
   return (

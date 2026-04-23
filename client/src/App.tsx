@@ -6,7 +6,6 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import DashboardLayout from "./components/DashboardLayout";
 import { useAuth } from "./_core/hooks/useAuth";
-import { getLoginUrl } from "./const";
 import { Loader2 } from "lucide-react";
 
 // Pages
@@ -19,6 +18,8 @@ import Calendar from "./pages/Calendar";
 import Analytics from "./pages/Analytics";
 import AdminUsers from "./pages/AdminUsers";
 import Settings from "./pages/Settings";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { loading, isAuthenticated } = useAuth();
@@ -37,7 +38,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   }
 
   if (!isAuthenticated) {
-    window.location.href = getLoginUrl();
+    // Redirect to login is handled by useAuth hook
     return null;
   }
 
@@ -47,6 +48,11 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 function Router() {
   return (
     <Switch>
+      {/* Public routes */}
+      <Route path="/login" component={Login} />
+      <Route path="/register" component={Register} />
+
+      {/* Protected routes */}
       <Route path="/" component={Dashboard} />
       <Route path="/articles" component={Articles} />
       <Route path="/articles/new" component={ArticleEditor} />
@@ -64,16 +70,22 @@ function Router() {
 }
 
 function App() {
+  const { isAuthenticated } = useAuth({ redirectOnUnauthenticated: false });
+
   return (
     <ErrorBoundary>
       <ThemeProvider defaultTheme="dark">
         <TooltipProvider>
           <Toaster richColors position="top-right" />
-          <AuthGate>
-            <DashboardLayout>
-              <Router />
-            </DashboardLayout>
-          </AuthGate>
+          {isAuthenticated ? (
+            <AuthGate>
+              <DashboardLayout>
+                <Router />
+              </DashboardLayout>
+            </AuthGate>
+          ) : (
+            <Router />
+          )}
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>
