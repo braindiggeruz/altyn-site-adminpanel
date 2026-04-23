@@ -12,11 +12,16 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const utils = trpc.useUtils();
 
   const loginMutation = trpc.auth.login.useMutation({
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Invalidate and refetch user data to ensure auth state is updated
+      await utils.auth.me.invalidate();
+      await utils.auth.me.refetch();
       toast.success("Вход выполнен успешно");
-      setLocation("/");
+      // Use setTimeout to ensure state updates before navigation
+      setTimeout(() => setLocation("/"), 100);
     },
     onError: (error) => {
       toast.error(error.message || "Ошибка входа");
@@ -32,7 +37,11 @@ export default function Login() {
 
     setIsLoading(true);
     try {
-      await loginMutation.mutateAsync({ email, password });
+      const result = await loginMutation.mutateAsync({ email, password });
+      if (result.success) {
+        // Ensure the mutation completes before we proceed
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
     } finally {
       setIsLoading(false);
     }

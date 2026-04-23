@@ -224,6 +224,124 @@ Return only the meta description, nothing else.`;
 }
 
 /**
+ * Generate Open Graph tags for social media
+ */
+export async function generateOpenGraphTags(
+  title: string,
+  content: string,
+  keyword: string
+): Promise<{ ogTitle: string; ogDescription: string }> {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY is not set');
+  }
+
+  const prompt = `You are an expert social media specialist. Generate Open Graph tags for sharing this article on social media:
+
+Title: ${title}
+Target Keyword: ${keyword}
+Content excerpt: ${content.substring(0, 300)}
+
+Requirements:
+1. OG Title: 50-70 characters, engaging and keyword-focused
+2. OG Description: 100-120 characters, compelling and click-worthy
+3. Include the target keyword naturally
+4. Make it shareable and engaging
+
+Return a JSON response:
+{
+  "ogTitle": "...",
+  "ogDescription": "..."
+}`;
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4.1-mini',
+    messages: [
+      {
+        role: 'user',
+        content: prompt,
+      },
+    ],
+    temperature: 0.7,
+    max_tokens: 300,
+  });
+
+  const content_response = response.choices[0]?.message?.content;
+  if (!content_response) {
+    throw new Error('No response from OpenAI');
+  }
+
+  try {
+    const jsonMatch = content_response.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('No JSON found in response');
+    }
+    return JSON.parse(jsonMatch[0]) as { ogTitle: string; ogDescription: string };
+  } catch (error) {
+    console.error('Failed to parse OpenAI response:', error);
+    throw new Error('Failed to parse OG tags');
+  }
+}
+
+/**
+ * Generate Twitter Card tags for social media
+ */
+export async function generateTwitterCardTags(
+  title: string,
+  content: string,
+  keyword: string
+): Promise<{ twitterTitle: string; twitterDescription: string }> {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY is not set');
+  }
+
+  const prompt = `You are an expert social media specialist. Generate Twitter Card tags for this article:
+
+Title: ${title}
+Target Keyword: ${keyword}
+Content excerpt: ${content.substring(0, 300)}
+
+Requirements:
+1. Twitter Title: 50-70 characters, engaging and keyword-focused
+2. Twitter Description: 100-120 characters, compelling for Twitter audience
+3. Include the target keyword naturally
+4. Make it tweet-worthy and engaging
+
+Return a JSON response:
+{
+  "twitterTitle": "...",
+  "twitterDescription": "..."
+}`;
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4.1-mini',
+    messages: [
+      {
+        role: 'user',
+        content: prompt,
+      },
+    ],
+    temperature: 0.7,
+    max_tokens: 300,
+  });
+
+  const content_response = response.choices[0]?.message?.content;
+  if (!content_response) {
+    throw new Error('No response from OpenAI');
+  }
+
+  try {
+    const jsonMatch = content_response.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('No JSON found in response');
+    }
+    return JSON.parse(jsonMatch[0]) as { twitterTitle: string; twitterDescription: string };
+  } catch (error) {
+    console.error('Failed to parse OpenAI response:', error);
+    throw new Error('Failed to parse Twitter tags');
+  }
+}
+
+/**
  * Analyze article for SEO issues
  */
 export async function analyzeSEOIssues(

@@ -1191,6 +1191,133 @@ var appRouter = router({
         };
       }
     }),
+    generateOgTags: protectedProcedure.input(z2.object({
+      title: z2.string(),
+      content: z2.string(),
+      targetKeyword: z2.string().optional()
+    })).mutation(async ({ input }) => {
+      const apiKey = process.env.OPENAI_API_KEY;
+      if (!apiKey) {
+        const kw = input.targetKeyword || input.title;
+        return {
+          ogTitle: `${kw} | ALTYN Therapy`,
+          ogDescription: `\u0423\u0437\u043D\u0430\u0439\u0442\u0435 \u0432\u0441\u0451 \u043E ${kw}. \u041F\u0440\u043E\u0444\u0435\u0441\u0441\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u044B\u0435 \u0441\u043E\u0432\u0435\u0442\u044B \u043E\u0442 \u044D\u043A\u0441\u043F\u0435\u0440\u0442\u043E\u0432.`,
+          aiUsed: false
+        };
+      }
+      try {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: "\u0422\u044B \u044D\u043A\u0441\u043F\u0435\u0440\u0442 \u043F\u043E \u0441\u043E\u0446\u0438\u0430\u043B\u044C\u043D\u044B\u043C \u0441\u0435\u0442\u044F\u043C. \u041E\u0442\u0432\u0435\u0447\u0430\u0439 \u0442\u043E\u043B\u044C\u043A\u043E \u0432\u0430\u043B\u0438\u0434\u043D\u044B\u043C JSON." },
+              { role: "user", content: `\u0421\u043E\u0437\u0434\u0430\u0439 Open Graph \u0442\u0435\u0433\u0438 \u0434\u043B\u044F \u0441\u0442\u0430\u0442\u044C\u0438 "${input.title}". \u041A\u043B\u044E\u0447\u0435\u0432\u043E\u0435 \u0441\u043B\u043E\u0432\u043E: "${input.targetKeyword || input.title}". \u0412\u0435\u0440\u043D\u0438 JSON: {"ogTitle":"...","ogDescription":"..."}` }
+            ],
+            response_format: { type: "json_object" }
+          })
+        });
+        const data = await response.json();
+        const result = JSON.parse(data.choices[0]?.message?.content || "{}");
+        return { ...result, aiUsed: true };
+      } catch {
+        const kw = input.targetKeyword || input.title;
+        return {
+          ogTitle: `${kw} | ALTYN Therapy`,
+          ogDescription: `\u0423\u0437\u043D\u0430\u0439\u0442\u0435 \u0432\u0441\u0451 \u043E ${kw}. \u041F\u0440\u043E\u0444\u0435\u0441\u0441\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u044B\u0435 \u0441\u043E\u0432\u0435\u0442\u044B.`,
+          aiUsed: false
+        };
+      }
+    }),
+    generateTwitterTags: protectedProcedure.input(z2.object({
+      title: z2.string(),
+      content: z2.string(),
+      targetKeyword: z2.string().optional()
+    })).mutation(async ({ input }) => {
+      const apiKey = process.env.OPENAI_API_KEY;
+      if (!apiKey) {
+        const kw = input.targetKeyword || input.title;
+        return {
+          twitterTitle: `${kw} | ALTYN Therapy`,
+          twitterDescription: `\u0423\u0437\u043D\u0430\u0439\u0442\u0435 \u0432\u0441\u0451 \u043E ${kw}. \u041F\u0440\u043E\u0444\u0435\u0441\u0441\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u044B\u0435 \u0441\u043E\u0432\u0435\u0442\u044B \u043E\u0442 \u044D\u043A\u0441\u043F\u0435\u0440\u0442\u043E\u0432.`,
+          aiUsed: false
+        };
+      }
+      try {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: "\u0422\u044B \u044D\u043A\u0441\u043F\u0435\u0440\u0442 \u043F\u043E Twitter. \u041E\u0442\u0432\u0435\u0447\u0430\u0439 \u0442\u043E\u043B\u044C\u043A\u043E \u0432\u0430\u043B\u0438\u0434\u043D\u044B\u043C JSON." },
+              { role: "user", content: `\u0421\u043E\u0437\u0434\u0430\u0439 Twitter Card \u0442\u0435\u0433\u0438 \u0434\u043B\u044F \u0441\u0442\u0430\u0442\u044C\u0438 "${input.title}". \u041A\u043B\u044E\u0447\u0435\u0432\u043E\u0435 \u0441\u043B\u043E\u0432\u043E: "${input.targetKeyword || input.title}". \u0412\u0435\u0440\u043D\u0438 JSON: {"twitterTitle":"...","twitterDescription":"..."}` }
+            ],
+            response_format: { type: "json_object" }
+          })
+        });
+        const data = await response.json();
+        const result = JSON.parse(data.choices[0]?.message?.content || "{}");
+        return { ...result, aiUsed: true };
+      } catch {
+        const kw = input.targetKeyword || input.title;
+        return {
+          twitterTitle: `${kw} | ALTYN Therapy`,
+          twitterDescription: `\u0423\u0437\u043D\u0430\u0439\u0442\u0435 \u0432\u0441\u0451 \u043E ${kw}. \u041F\u0440\u043E\u0444\u0435\u0441\u0441\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u044B\u0435 \u0441\u043E\u0432\u0435\u0442\u044B.`,
+          aiUsed: false
+        };
+      }
+    }),
+    generateAllSeo: protectedProcedure.input(z2.object({
+      title: z2.string(),
+      content: z2.string(),
+      targetKeyword: z2.string().optional()
+    })).mutation(async ({ input }) => {
+      const apiKey = process.env.OPENAI_API_KEY;
+      if (!apiKey) {
+        const kw = input.targetKeyword || input.title;
+        return {
+          h1: `${kw}: \u043F\u043E\u043B\u043D\u043E\u0435 \u0440\u0443\u043A\u043E\u0432\u043E\u0434\u0441\u0442\u0432\u043E`,
+          metaDescription: `\u0423\u0437\u043D\u0430\u0439\u0442\u0435 \u0432\u0441\u0451 \u043E ${kw}. \u041F\u0440\u043E\u0444\u0435\u0441\u0441\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u044B\u0435 \u0441\u043E\u0432\u0435\u0442\u044B \u0438 \u043F\u0440\u0430\u043A\u0442\u0438\u0447\u0435\u0441\u043A\u0438\u0435 \u0440\u0435\u043A\u043E\u043C\u0435\u043D\u0434\u0430\u0446\u0438\u0438.`,
+          metaKeywords: `${kw}, \u043E\u043D\u043B\u0430\u0439\u043D, \u043F\u0440\u043E\u0444\u0435\u0441\u0441\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u043E, \u044D\u0444\u0444\u0435\u043A\u0442\u0438\u0432\u043D\u043E`,
+          ogTitle: `${kw} | ALTYN Therapy`,
+          ogDescription: `\u0423\u0437\u043D\u0430\u0439\u0442\u0435 \u0432\u0441\u0451 \u043E ${kw}. \u041F\u0440\u043E\u0444\u0435\u0441\u0441\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u044B\u0435 \u0441\u043E\u0432\u0435\u0442\u044B.`,
+          twitterTitle: `${kw} | ALTYN Therapy`,
+          twitterDescription: `\u0423\u0437\u043D\u0430\u0439\u0442\u0435 \u0432\u0441\u0451 \u043E ${kw}. \u041F\u0440\u043E\u0444\u0435\u0441\u0441\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u044B\u0435 \u0441\u043E\u0432\u0435\u0442\u044B.`,
+          aiUsed: false
+        };
+      }
+      try {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: "\u0422\u044B SEO-\u0441\u043F\u0435\u0446\u0438\u0430\u043B\u0438\u0441\u0442 \u0438 \u044D\u043A\u0441\u043F\u0435\u0440\u0442 \u043F\u043E \u0441\u043E\u0446\u0438\u0430\u043B\u044C\u043D\u044B\u043C \u0441\u0435\u0442\u044F\u043C. \u041E\u0442\u0432\u0435\u0447\u0430\u0439 \u0442\u043E\u043B\u044C\u043A\u043E \u0432\u0430\u043B\u0438\u0434\u043D\u044B\u043C JSON." },
+              { role: "user", content: `\u0421\u043E\u0437\u0434\u0430\u0439 \u043F\u043E\u043B\u043D\u044B\u0439 SEO-\u043F\u0430\u043A\u0435\u0442 \u0434\u043B\u044F \u0441\u0442\u0430\u0442\u044C\u0438 "${input.title}". \u041A\u043B\u044E\u0447\u0435\u0432\u043E\u0435 \u0441\u043B\u043E\u0432\u043E: "${input.targetKeyword || input.title}". \u041E\u0442\u0440\u044B\u0432\u043E\u043A: "${input.content.slice(0, 300)}". \u0412\u0435\u0440\u043D\u0438 JSON: {"h1":"...","metaDescription":"...","metaKeywords":"...","ogTitle":"...","ogDescription":"...","twitterTitle":"...","twitterDescription":"..."}` }
+            ],
+            response_format: { type: "json_object" }
+          })
+        });
+        const data = await response.json();
+        const result = JSON.parse(data.choices[0]?.message?.content || "{}");
+        return { ...result, aiUsed: true };
+      } catch {
+        const kw = input.targetKeyword || input.title;
+        return {
+          h1: `${kw}: \u043F\u043E\u043B\u043D\u043E\u0435 \u0440\u0443\u043A\u043E\u0432\u043E\u0434\u0441\u0442\u0432\u043E`,
+          metaDescription: `\u0423\u0437\u043D\u0430\u0439\u0442\u0435 \u0432\u0441\u0451 \u043E ${kw}. \u041F\u0440\u043E\u0444\u0435\u0441\u0441\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u044B\u0435 \u0441\u043E\u0432\u0435\u0442\u044B.`,
+          metaKeywords: `${kw}, \u043E\u043D\u043B\u0430\u0439\u043D, \u043F\u0440\u043E\u0444\u0435\u0441\u0441\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u043E`,
+          ogTitle: `${kw} | ALTYN Therapy`,
+          ogDescription: `\u0423\u0437\u043D\u0430\u0439\u0442\u0435 \u0432\u0441\u0451 \u043E ${kw}.`,
+          twitterTitle: `${kw} | ALTYN Therapy`,
+          twitterDescription: `\u0423\u0437\u043D\u0430\u0439\u0442\u0435 \u0432\u0441\u0451 \u043E ${kw}.`,
+          aiUsed: false
+        };
+      }
+    }),
     generateSitemap: protectedProcedure.query(async () => {
       const { items } = await (void 0)({ status: "published", limit: 1e3 });
       const siteUrl = process.env.SITE_URL || "https://altyn-therapy.uz";

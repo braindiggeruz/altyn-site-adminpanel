@@ -499,6 +499,142 @@ export const appRouter = router({
         }
       }),
 
+    generateOgTags: protectedProcedure
+      .input(z.object({
+        title: z.string(),
+        content: z.string(),
+        targetKeyword: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey) {
+          const kw = input.targetKeyword || input.title;
+          return {
+            ogTitle: `${kw} | ALTYN Therapy`,
+            ogDescription: `Узнайте всё о ${kw}. Профессиональные советы от экспертов.`,
+            aiUsed: false,
+          };
+        }
+        try {
+          const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+            body: JSON.stringify({
+              model: "gpt-4o-mini",
+              messages: [
+                { role: "system", content: "Ты эксперт по социальным сетям. Отвечай только валидным JSON." },
+                { role: "user", content: `Создай Open Graph теги для статьи \"${input.title}\". Ключевое слово: \"${input.targetKeyword || input.title}\". Верни JSON: {\"ogTitle\":\"...\",\"ogDescription\":\"...\"}` },
+              ],
+              response_format: { type: "json_object" },
+            }),
+          });
+          const data = await response.json() as any;
+          const result = JSON.parse(data.choices[0]?.message?.content || "{}");
+          return { ...result, aiUsed: true };
+        } catch {
+          const kw = input.targetKeyword || input.title;
+          return {
+            ogTitle: `${kw} | ALTYN Therapy`,
+            ogDescription: `Узнайте всё о ${kw}. Профессиональные советы.`,
+            aiUsed: false,
+          };
+        }
+      }),
+
+    generateTwitterTags: protectedProcedure
+      .input(z.object({
+        title: z.string(),
+        content: z.string(),
+        targetKeyword: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey) {
+          const kw = input.targetKeyword || input.title;
+          return {
+            twitterTitle: `${kw} | ALTYN Therapy`,
+            twitterDescription: `Узнайте всё о ${kw}. Профессиональные советы от экспертов.`,
+            aiUsed: false,
+          };
+        }
+        try {
+          const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+            body: JSON.stringify({
+              model: "gpt-4o-mini",
+              messages: [
+                { role: "system", content: "Ты эксперт по Twitter. Отвечай только валидным JSON." },
+                { role: "user", content: `Создай Twitter Card теги для статьи \"${input.title}\". Ключевое слово: \"${input.targetKeyword || input.title}\". Верни JSON: {\"twitterTitle\":\"...\",\"twitterDescription\":\"...\"}` },
+              ],
+              response_format: { type: "json_object" },
+            }),
+          });
+          const data = await response.json() as any;
+          const result = JSON.parse(data.choices[0]?.message?.content || "{}");
+          return { ...result, aiUsed: true };
+        } catch {
+          const kw = input.targetKeyword || input.title;
+          return {
+            twitterTitle: `${kw} | ALTYN Therapy`,
+            twitterDescription: `Узнайте всё о ${kw}. Профессиональные советы.`,
+            aiUsed: false,
+          };
+        }
+      }),
+
+    generateAllSeo: protectedProcedure
+      .input(z.object({
+        title: z.string(),
+        content: z.string(),
+        targetKeyword: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey) {
+          const kw = input.targetKeyword || input.title;
+          return {
+            h1: `${kw}: полное руководство`,
+            metaDescription: `Узнайте всё о ${kw}. Профессиональные советы и практические рекомендации.`,
+            metaKeywords: `${kw}, онлайн, профессионально, эффективно`,
+            ogTitle: `${kw} | ALTYN Therapy`,
+            ogDescription: `Узнайте всё о ${kw}. Профессиональные советы.`,
+            twitterTitle: `${kw} | ALTYN Therapy`,
+            twitterDescription: `Узнайте всё о ${kw}. Профессиональные советы.`,
+            aiUsed: false,
+          };
+        }
+        try {
+          const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+            body: JSON.stringify({
+              model: "gpt-4o-mini",
+              messages: [
+                { role: "system", content: "Ты SEO-специалист и эксперт по социальным сетям. Отвечай только валидным JSON." },
+                { role: "user", content: `Создай полный SEO-пакет для статьи \"${input.title}\". Ключевое слово: \"${input.targetKeyword || input.title}\". Отрывок: \"${input.content.slice(0, 300)}\". Верни JSON: {\"h1\":\"...\",\"metaDescription\":\"...\",\"metaKeywords\":\"...\",\"ogTitle\":\"...\",\"ogDescription\":\"...\",\"twitterTitle\":\"...\",\"twitterDescription\":\"...\"}` },
+              ],
+              response_format: { type: "json_object" },
+            }),
+          });
+          const data = await response.json() as any;
+          const result = JSON.parse(data.choices[0]?.message?.content || "{}");
+          return { ...result, aiUsed: true };
+        } catch {
+          const kw = input.targetKeyword || input.title;
+          return {
+            h1: `${kw}: полное руководство`,
+            metaDescription: `Узнайте всё о ${kw}. Профессиональные советы.`,
+            metaKeywords: `${kw}, онлайн, профессионально`,
+            ogTitle: `${kw} | ALTYN Therapy`,
+            ogDescription: `Узнайте всё о ${kw}.`,
+            twitterTitle: `${kw} | ALTYN Therapy`,
+            twitterDescription: `Узнайте всё о ${kw}.`,
+            aiUsed: false,
+          };
+        }
+      }),
+
     generateSitemap: protectedProcedure.query(async () => {
       const { items } = await db.getArticles({ status: "published", limit: 1000 });
       const siteUrl = process.env.SITE_URL || "https://altyn-therapy.uz";
@@ -508,7 +644,11 @@ export const appRouter = router({
         changefreq: "weekly",
         priority: "0.8",
       }));
-      const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>${siteUrl}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>\n${urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${u.lastmod}</lastmod><changefreq>${u.changefreq}</changefreq><priority>${u.priority}</priority></url>`).join("\n")}\n</urlset>`;
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>${siteUrl}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
+${urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${u.lastmod}</lastmod><changefreq>${u.changefreq}</changefreq><priority>${u.priority}</priority></url>`).join("\n")}
+</urlset>`;
       return { xml, count: urls.length };
     }),
   }),

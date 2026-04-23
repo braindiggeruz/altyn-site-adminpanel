@@ -1,4 +1,3 @@
-import { useAuth } from "@/_core/hooks/useAuth";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -45,36 +44,38 @@ import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { Button } from "./ui/button";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { useTranslation } from "react-i18next";
 
-const menuGroups = [
+const getMenuGroups = (t: any) => [
   {
-    label: "Overview",
+    label: t("common.overview", "Overview"),
     items: [
-      { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-      { icon: BarChart3, label: "Analytics", path: "/analytics" },
+      { icon: LayoutDashboard, label: t("dashboard.title", "Dashboard"), path: "/" },
+      { icon: BarChart3, label: t("analytics.title", "Analytics"), path: "/analytics" },
     ],
   },
   {
-    label: "Content",
+    label: t("common.content", "Content"),
     items: [
-      { icon: BookOpen, label: "Articles", path: "/articles" },
-      { icon: Calendar, label: "Content Calendar", path: "/calendar" },
+      { icon: BookOpen, label: t("articles.title", "Articles"), path: "/articles" },
+      { icon: Calendar, label: t("calendar.title", "Content Calendar"), path: "/calendar" },
     ],
   },
   {
-    label: "SEO",
+    label: t("settings.seo", "SEO"),
     items: [
-      { icon: Search, label: "Keywords", path: "/keywords" },
-      { icon: Swords, label: "Competitors", path: "/competitors" },
-      { icon: Link2, label: "Internal Links", path: "/articles" },
-      { icon: Globe, label: "Sitemap & GSC", path: "/settings" },
+      { icon: Search, label: t("keywords.title", "Keywords"), path: "/keywords" },
+      { icon: Swords, label: t("competitors.title", "Competitors"), path: "/competitors" },
+      { icon: Link2, label: t("common.internalLinks", "Internal Links"), path: "/articles" },
+      { icon: Globe, label: t("common.sitemapGsc", "Sitemap & GSC"), path: "/settings" },
     ],
   },
   {
-    label: "Admin",
+    label: t("admin.title", "Admin"),
     items: [
-      { icon: Users, label: "Team", path: "/admin/users" },
-      { icon: Settings, label: "Settings", path: "/settings" },
+      { icon: Users, label: t("admin.users", "Team"), path: "/admin/users" },
+      { icon: Settings, label: t("common.settings", "Settings"), path: "/settings" },
     ],
   },
 ];
@@ -124,6 +125,7 @@ function DashboardLayoutContent({
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+  const { i18n, t } = useTranslation();
 
   useEffect(() => {
     if (isCollapsed) setIsResizing(false);
@@ -181,7 +183,7 @@ function DashboardLayoutContent({
           </SidebarHeader>
 
           <SidebarContent className="gap-0 py-2">
-            {menuGroups.map((group) => (
+            {getMenuGroups(t).map((group) => (
               <div key={group.label} className="mb-1">
                 {!isCollapsed && (
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 px-4 py-1.5">
@@ -239,43 +241,59 @@ function DashboardLayoutContent({
                 </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => setLocation("/settings")} className="cursor-pointer">
-                  <Settings className="mr-2 h-4 w-4" /> Settings
+                  <Settings className="mr-2 h-4 w-4" /> {t("common.settings", "Settings")}
                 </DropdownMenuItem>
                 {user?.role === "admin" && (
                   <DropdownMenuItem onClick={() => setLocation("/admin/users")} className="cursor-pointer">
-                    <Shield className="mr-2 h-4 w-4" /> Admin Panel
+                    <Shield className="mr-2 h-4 w-4" /> {t("admin.title", "Admin Panel")}
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
+                <div className="px-2 py-1.5">
+                  <p className="text-xs font-semibold text-muted-foreground mb-1.5">{t("common.language", "Language")}</p>
+                  <div className="flex gap-1">
+                    <Button
+                      size="sm"
+                      variant={i18n.language === "ru" ? "default" : "outline"}
+                      className="text-xs h-7 flex-1"
+                      onClick={() => i18n.changeLanguage("ru")}
+                    >
+                      РУ
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={i18n.language === "en" ? "default" : "outline"}
+                      className="text-xs h-7 flex-1"
+                      onClick={() => i18n.changeLanguage("en")}
+                    >
+                      EN
+                    </Button>
+                  </div>
+                </div>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={logout} className="cursor-pointer text-destructive focus:text-destructive">
-                  <LogOut className="mr-2 h-4 w-4" /> Sign out
+                  <LogOut className="mr-2 h-4 w-4" /> {t("common.logout", "Logout")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarFooter>
+
+          {!isCollapsed && !isMobile && (
+            <div
+              onMouseDown={() => setIsResizing(true)}
+              className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/30 transition-colors"
+            />
+          )}
         </Sidebar>
-
-        <div
-          className={`absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary/30 transition-colors ${isCollapsed ? "hidden" : ""}`}
-          onMouseDown={() => { if (!isCollapsed) setIsResizing(true); }}
-          style={{ zIndex: 50 }}
-        />
-      </div>
-
-      <SidebarInset className="bg-background">
-        {isMobile && (
-          <div className="flex border-b border-border/50 h-14 items-center justify-between bg-background/95 px-4 backdrop-blur sticky top-0 z-40">
-            <div className="flex items-center gap-3">
-              <SidebarTrigger className="h-8 w-8 rounded-lg" />
-              <div className="flex items-center gap-2">
-                <Zap className="w-4 h-4 text-primary" />
-                <span className="font-semibold text-sm">ALTYN SEO</span>
-              </div>
+        <SidebarInset>
+          <header className="flex items-center justify-between h-14 border-b border-border/50 px-4 gap-4">
+            <div className="flex items-center gap-2">
+              {isMobile && <SidebarTrigger />}
             </div>
-          </div>
-        )}
-        <main className="flex-1 p-6 min-h-screen">{children}</main>
-      </SidebarInset>
+          </header>
+          <main className="flex-1 overflow-auto">{children}</main>
+        </SidebarInset>
+      </div>
     </>
   );
 }

@@ -29,7 +29,11 @@
     "language": "Язык",
     "theme": "Тема",
     "darkMode": "Тёмный режим",
-    "lightMode": "Светлый режим"
+    "lightMode": "Светлый режим",
+    "overview": "Обзор",
+    "content": "Содержание",
+    "internalLinks": "Внутренние ссылки",
+    "sitemapGsc": "Карта сайта и GSC"
   },
   "auth": {
     "loginTitle": "Вход в ALTYN SEO Панель",
@@ -227,5 +231,20 @@
     "serverError": "Ошибка сервера",
     "networkError": "Ошибка сети",
     "tryAgain": "Попробуйте снова"
+  },
+  "seo": {
+    "generateMeta": "Генерировать мета-теги",
+    "generateOg": "Генерировать Open Graph",
+    "generateTwitter": "Генерировать Twitter Card",
+    "generateAll": "Оптимизировать всё",
+    "ogTitle": "OG Заголовок",
+    "ogDescription": "OG Описание",
+    "twitterTitle": "Twitter Заголовок",
+    "twitterDescription": "Twitter Описание",
+    "canonicalUrl": "Canonical URL",
+    "schemaJson": "Schema JSON",
+    "generateSuccess": "Теги успешно сгенерированы",
+    "generateError": "Ошибка при генерации тегов",
+    "titleRequired": "Сначала введите заголовок статьи"
   }
 }

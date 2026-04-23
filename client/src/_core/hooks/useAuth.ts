@@ -15,11 +15,13 @@ export function useAuth(options?: UseAuthOptions) {
   const meQuery = trpc.auth.me.useQuery(undefined, {
     retry: false,
     refetchOnWindowFocus: false,
+    refetchOnMount: true,
   });
 
   const logoutMutation = trpc.auth.logout.useMutation({
     onSuccess: () => {
       utils.auth.me.setData(undefined, null);
+      utils.auth.me.invalidate();
     },
   });
 
@@ -42,10 +44,12 @@ export function useAuth(options?: UseAuthOptions) {
   }, [logoutMutation, utils, setLocation]);
 
   const state = useMemo(() => {
-    localStorage.setItem(
-      "altyn-user-info",
-      JSON.stringify(meQuery.data)
-    );
+    if (meQuery.data) {
+      localStorage.setItem(
+        "altyn-user-info",
+        JSON.stringify(meQuery.data)
+      );
+    }
     return {
       user: meQuery.data ?? null,
       loading: meQuery.isLoading || logoutMutation.isPending,
@@ -83,5 +87,6 @@ export function useAuth(options?: UseAuthOptions) {
     ...state,
     refresh: () => meQuery.refetch(),
     logout,
+    invalidateMe: () => utils.auth.me.invalidate(),
   };
 }

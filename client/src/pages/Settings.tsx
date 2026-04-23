@@ -26,6 +26,7 @@ import {
   User,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { trpc } from "@/lib/trpc";
 
 const DEFAULT_ROBOTS = `User-agent: *
 Allow: /
@@ -56,6 +57,8 @@ export default function Settings() {
       if (savedSettings.siteUrl) setSiteUrl(savedSettings.siteUrl);
       if (savedSettings.siteName) setSiteName(savedSettings.siteName);
       if (savedSettings.defaultMetaDescription) setDefaultMeta(savedSettings.defaultMetaDescription);
+      if (savedSettings.gscProperty) setGscProperty(savedSettings.gscProperty);
+      if (savedSettings.ga4Id) setGa4Id(savedSettings.ga4Id);
       if (savedSettings.robotsTxt) setRobotsTxt(savedSettings.robotsTxt);
       if (savedSettings.aiGenerationLanguage) setAiLang(savedSettings.aiGenerationLanguage);
       if (savedSettings.aiTone) setAiTone(savedSettings.aiTone);
@@ -84,11 +87,20 @@ export default function Settings() {
     saveMutation.mutate({ robotsTxt });
   };
 
+  const handleSaveIntegrations = () => {
+    saveMutation.mutate({
+      gscProperty,
+      ga4Id,
+    });
+  };
+
   const handleSaveSeoSettings = () => {
     saveMutation.mutate({
       siteUrl,
       siteName,
       defaultMetaDescription: defaultMeta,
+      gscProperty,
+      ga4Id,
       aiGenerationLanguage: aiLang,
       aiTone,
     });
@@ -252,57 +264,129 @@ export default function Settings() {
 
         {/* Integrations */}
         <TabsContent value="integrations" className="space-y-4">
-          {[
-            {
-              name: "Google Search Console",
-              icon: Search,
-              description: "Auto-submit articles for indexing, track search performance",
-              status: gscProperty ? "connected" : "disconnected",
-              note: "Add GSC_API_KEY in project Secrets to enable auto-indexing",
-            },
-            {
-              name: "Google Analytics 4",
-              icon: Globe,
-              description: "Track organic traffic, user behavior, and conversions",
-              status: ga4Id ? "connected" : "disconnected",
-              note: "Set GA4_MEASUREMENT_ID in project Secrets for full tracking",
-            },
-            {
-              name: "Semrush API",
-              icon: Search,
-              description: "Keyword research, competitor analysis, rank tracking",
-              status: "disconnected",
-              note: "Add SEMRUSH_API_KEY in project Secrets to enable real data",
-            },
-          ].map((integration) => (
-            <Card key={integration.name} className="bg-card border-border/50">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <integration.icon className="w-4 h-4 text-primary" />
+          {/* Google Search Console */}
+          <Card className="bg-card border-border/50">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 flex-1">
+                  <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Search className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold">Google Search Console</p>
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] h-4 ${gscProperty ? "border-emerald-500/50 text-emerald-400" : "border-muted-foreground/30 text-muted-foreground"}`}
+                      >
+                        {gscProperty ? "connected" : "disconnected"}
+                      </Badge>
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold">{integration.name}</p>
-                        <Badge
-                          variant="outline"
-                          className={`text-[10px] h-4 ${integration.status === "connected" ? "border-emerald-500/50 text-emerald-400" : "border-muted-foreground/30 text-muted-foreground"}`}
-                        >
-                          {integration.status}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">{integration.description}</p>
-                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">Auto-submit articles for indexing, track search performance</p>
                   </div>
                 </div>
-                <div className="mt-3 p-2 rounded bg-muted/30 flex items-start gap-2">
-                  <AlertCircle className="w-3.5 h-3.5 text-amber-400 mt-0.5 flex-shrink-0" />
-                  <p className="text-[11px] text-muted-foreground">{integration.note}</p>
+                <div className="flex gap-2">
+                  {gscProperty ? (
+                    <>
+                      <Button size="sm" variant="outline" className="border-border/50 text-xs">
+                        <CheckCircle className="w-3 h-3 mr-1.5 text-emerald-400" />
+                        {gscProperty}
+                      </Button>
+                      <Button size="sm" variant="ghost" className="text-xs text-red-400 hover:text-red-300" onClick={() => setGscProperty("")}>
+                        Disconnect
+                      </Button>
+                    </>
+                  ) : (
+                    <Button size="sm" className="text-xs gap-1.5" onClick={() => alert("Google OAuth integration coming soon. For now, add GSC_API_KEY in project Secrets.")}>
+                      <Globe className="w-3 h-3" />
+                      Connect with Google
+                    </Button>
+                  )}
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+              </div>
+              <div className="mt-3 p-2 rounded bg-muted/30 flex items-start gap-2">
+                <AlertCircle className="w-3.5 h-3.5 text-amber-400 mt-0.5 flex-shrink-0" />
+                <p className="text-[11px] text-muted-foreground">Add GSC_API_KEY in project Secrets to enable auto-indexing. {gscProperty && `Currently using: ${gscProperty}`}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Google Analytics 4 */}
+          <Card className="bg-card border-border/50">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 flex-1">
+                  <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Globe className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold">Google Analytics 4</p>
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] h-4 ${ga4Id ? "border-emerald-500/50 text-emerald-400" : "border-muted-foreground/30 text-muted-foreground"}`}
+                      >
+                        {ga4Id ? "connected" : "disconnected"}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">Track organic traffic, user behavior, and conversions</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  {ga4Id ? (
+                    <>
+                      <Button size="sm" variant="outline" className="border-border/50 text-xs">
+                        <CheckCircle className="w-3 h-3 mr-1.5 text-emerald-400" />
+                        {ga4Id}
+                      </Button>
+                      <Button size="sm" variant="ghost" className="text-xs text-red-400 hover:text-red-300" onClick={() => setGa4Id("")}>
+                        Disconnect
+                      </Button>
+                    </>
+                  ) : (
+                    <Button size="sm" className="text-xs gap-1.5" onClick={() => alert("Google OAuth integration coming soon. For now, add GA4_MEASUREMENT_ID in project Secrets.")}>
+                      <Globe className="w-3 h-3" />
+                      Connect with Google
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <div className="mt-3 p-2 rounded bg-muted/30 flex items-start gap-2">
+                <AlertCircle className="w-3.5 h-3.5 text-amber-400 mt-0.5 flex-shrink-0" />
+                <p className="text-[11px] text-muted-foreground">Set GA4_MEASUREMENT_ID in project Secrets for full tracking. {ga4Id && `Currently using: ${ga4Id}`}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Semrush API */}
+          <Card className="bg-card border-border/50">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 flex-1">
+                  <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Search className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold">Semrush API</p>
+                      <Badge variant="outline" className="text-[10px] h-4 border-muted-foreground/30 text-muted-foreground">
+                        disconnected
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">Keyword research, competitor analysis, rank tracking</p>
+                  </div>
+                </div>
+                <Button size="sm" className="text-xs gap-1.5" disabled>
+                  <Globe className="w-3 h-3" />
+                  Coming Soon
+                </Button>
+              </div>
+              <div className="mt-3 p-2 rounded bg-muted/30 flex items-start gap-2">
+                <AlertCircle className="w-3.5 h-3.5 text-amber-400 mt-0.5 flex-shrink-0" />
+                <p className="text-[11px] text-muted-foreground">Add SEMRUSH_API_KEY in project Secrets to enable real data</p>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* AI Settings */}

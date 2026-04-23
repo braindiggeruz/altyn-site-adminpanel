@@ -29,7 +29,11 @@
     "language": "Language",
     "theme": "Theme",
     "darkMode": "Dark Mode",
-    "lightMode": "Light Mode"
+    "lightMode": "Light Mode",
+    "overview": "Overview",
+    "content": "Content",
+    "internalLinks": "Internal Links",
+    "sitemapGsc": "Sitemap & GSC"
   },
   "auth": {
     "loginTitle": "Login to ALTYN SEO Panel",
@@ -227,5 +231,20 @@
     "serverError": "Server error",
     "networkError": "Network error",
     "tryAgain": "Try again"
+  },
+  "seo": {
+    "generateMeta": "Generate Meta Tags",
+    "generateOg": "Generate Open Graph",
+    "generateTwitter": "Generate Twitter Card",
+    "generateAll": "Optimize All SEO",
+    "ogTitle": "OG Title",
+    "ogDescription": "OG Description",
+    "twitterTitle": "Twitter Title",
+    "twitterDescription": "Twitter Description",
+    "canonicalUrl": "Canonical URL",
+    "schemaJson": "Schema JSON",
+    "generateSuccess": "Tags generated successfully",
+    "generateError": "Error generating tags",
+    "titleRequired": "Please enter article title first"
   }
 }

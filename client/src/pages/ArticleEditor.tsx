@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -213,7 +214,10 @@ export default function ArticleEditor() {
   };
 
   const handleGenerateMeta = () => {
-    if (!form.title) { toast.error("Add a title first"); return; }
+    if (!form.title) {
+      toast.error("Please enter article title first");
+      return;
+    }
     generateMetaMutation.mutate({
       title: form.title,
       content: form.content,
@@ -376,16 +380,25 @@ export default function ArticleEditor() {
             <TabsContent value="seo" className="space-y-4 mt-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold">SEO Metadata</h3>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleGenerateMeta}
-                  disabled={generateMetaMutation.isPending}
-                  className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
-                >
-                  {generateMetaMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                  AI Generate
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleGenerateMeta}
+                      disabled={generateMetaMutation.isPending || !form.title}
+                      className="gap-2 border-primary/30 text-primary hover:bg-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {generateMetaMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                      AI Generate
+                    </Button>
+                  </TooltipTrigger>
+                  {!form.title && (
+                    <TooltipContent side="left" className="text-xs">
+                      Please enter article title first
+                    </TooltipContent>
+                  )}
+                </Tooltip>
               </div>
 
               <div className="space-y-1.5">
