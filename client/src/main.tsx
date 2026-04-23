@@ -13,11 +13,8 @@ const queryClient = new QueryClient();
 const redirectToLoginIfUnauthorized = (error: unknown) => {
   if (!(error instanceof TRPCClientError)) return;
   if (typeof window === "undefined") return;
-
   const isUnauthorized = error.message === UNAUTHED_ERR_MSG;
-
   if (!isUnauthorized) return;
-
   // Redirect to login page instead of Manus OAuth
   window.location.href = "/login";
 };
@@ -44,7 +41,9 @@ const trpcClient = trpc.createClient({
       url: "/api/trpc",
       transformer: superjson,
       fetch(input, init) {
-        return globalThis.fetch(input, {
+        // Ensure input is a string URL
+        const url = typeof input === 'string' ? input : String(input);
+        return globalThis.fetch(url, {
           ...(init ?? {}),
           credentials: "include",
         });
