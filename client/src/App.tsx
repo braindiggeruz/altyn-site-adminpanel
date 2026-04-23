@@ -45,7 +45,32 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
+  const { isAuthenticated, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
+            <Loader2 className="w-5 h-5 text-primary animate-spin" />
+          </div>
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!isAuthenticated) {
+    return <Login />;
+  }
+  
+  return <Component />;
+}
+
 function Router() {
+  const { isAuthenticated } = useAuth({ redirectOnUnauthenticated: false });
+  
   return (
     <Switch>
       {/* Public routes */}
@@ -53,16 +78,16 @@ function Router() {
       <Route path="/register" component={Register} />
 
       {/* Protected routes */}
-      <Route path="/" component={Dashboard} />
-      <Route path="/articles" component={Articles} />
-      <Route path="/articles/new" component={ArticleEditor} />
-      <Route path="/articles/:id/edit" component={ArticleEditor} />
-      <Route path="/keywords" component={Keywords} />
-      <Route path="/competitors" component={Competitors} />
-      <Route path="/calendar" component={Calendar} />
-      <Route path="/analytics" component={Analytics} />
-      <Route path="/admin/users" component={AdminUsers} />
-      <Route path="/settings" component={Settings} />
+      <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
+      <Route path="/articles" component={() => <ProtectedRoute component={Articles} />} />
+      <Route path="/articles/new" component={() => <ProtectedRoute component={ArticleEditor} />} />
+      <Route path="/articles/:id/edit" component={() => <ProtectedRoute component={ArticleEditor} />} />
+      <Route path="/keywords" component={() => <ProtectedRoute component={Keywords} />} />
+      <Route path="/competitors" component={() => <ProtectedRoute component={Competitors} />} />
+      <Route path="/calendar" component={() => <ProtectedRoute component={Calendar} />} />
+      <Route path="/analytics" component={() => <ProtectedRoute component={Analytics} />} />
+      <Route path="/admin/users" component={() => <ProtectedRoute component={AdminUsers} />} />
+      <Route path="/settings" component={() => <ProtectedRoute component={Settings} />} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
@@ -70,7 +95,26 @@ function Router() {
 }
 
 function App() {
-  const { isAuthenticated } = useAuth({ redirectOnUnauthenticated: false });
+  const { isAuthenticated, loading } = useAuth({ redirectOnUnauthenticated: false });
+
+  if (loading) {
+    return (
+      <ErrorBoundary>
+        <ThemeProvider defaultTheme="dark">
+          <TooltipProvider>
+            <div className="min-h-screen bg-background flex items-center justify-center">
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
+                  <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                </div>
+                <p className="text-sm text-muted-foreground">Loading ALTYN SEO Panel...</p>
+              </div>
+            </div>
+          </TooltipProvider>
+        </ThemeProvider>
+      </ErrorBoundary>
+    );
+  }
 
   return (
     <ErrorBoundary>
@@ -78,11 +122,9 @@ function App() {
         <TooltipProvider>
           <Toaster richColors position="top-right" />
           {isAuthenticated ? (
-            <AuthGate>
-              <DashboardLayout>
-                <Router />
-              </DashboardLayout>
-            </AuthGate>
+            <DashboardLayout>
+              <Router />
+            </DashboardLayout>
           ) : (
             <Router />
           )}
