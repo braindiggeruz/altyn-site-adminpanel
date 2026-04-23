@@ -99,7 +99,7 @@ export default function ArticleEditor() {
     twitterDescription: "",
     canonicalUrl: "",
     schemaType: "Article",
-    schemaJson: undefined as unknown,
+    schemaJson: null as unknown,
     tags: [] as string[],
   });
   const [tagInput, setTagInput] = useState("");
@@ -115,7 +115,7 @@ export default function ArticleEditor() {
 
   const { data: categories } = trpc.categories.list.useQuery();
   const { data: versions } = trpc.articles.versions.useQuery(
-    { id: articleId! },
+    { articleId: articleId! },
     { enabled: isEditing && showVersions }
   );
 
@@ -198,8 +198,6 @@ export default function ArticleEditor() {
     onError: (e) => toast.error(e.message),
   });
 
-  const linkSuggestions = trpc.seo.suggestInternalLinks.useMutation();
-
   const handleSave = () => {
     if (!form.title.trim()) { toast.error("Title is required"); return; }
     const payload = {
@@ -235,12 +233,7 @@ export default function ArticleEditor() {
   };
 
   const handleSuggestLinks = () => {
-    if (!articleId) { toast.error("Save article first"); return; }
-    linkSuggestions.mutate({
-      articleId,
-      content: form.content,
-      targetKeyword: form.targetKeyword,
-    });
+    toast.info("Функция внутренней перелинковки требует OpenAI API. Добавьте OPENAI_API_KEY в настройках.");
   };
 
   const addTag = () => {
@@ -539,33 +532,16 @@ export default function ArticleEditor() {
                     variant="outline"
                     size="sm"
                     onClick={handleSuggestLinks}
-                    disabled={linkSuggestions.isPending}
                     className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
                   >
-                    {linkSuggestions.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                    <Sparkles className="w-3.5 h-3.5" />
                     AI Suggest
                   </Button>
                 </div>
-                {linkSuggestions.data ? (
-                  <div className="space-y-2">
-                    {linkSuggestions.data.map((s: any, i: number) => (
-                      <div key={i} className="p-3 rounded-lg border border-border/50 bg-card/50">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium truncate">{s.article?.title || `Article #${s.articleId}`}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">{s.reason}</p>
-                          </div>
-                          <div className="shrink-0">
-                            <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-md">{s.anchorText}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
+                {false ? null : (
                   <div className="text-center py-8 text-muted-foreground">
                     <Link2 className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                    <p className="text-sm">Click "AI Suggest" to get smart internal link recommendations</p>
+                    <p className="text-sm">Нажмите "AI Suggest" для получения рекомендаций по внутренней перелинковке (OpenAI API)</p>
                   </div>
                 )}
               </TabsContent>

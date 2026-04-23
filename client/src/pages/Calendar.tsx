@@ -196,7 +196,10 @@ export default function Calendar() {
                 <Textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} placeholder="Additional notes..." className="min-h-[60px] bg-background border-border/50" />
               </div>
               <Button
-                onClick={() => createMutation.mutate(form)}
+                onClick={() => createMutation.mutate({
+                  ...form,
+                  scheduledDate: new Date(form.scheduledDate),
+                })}
                 disabled={!form.title || !form.scheduledDate || createMutation.isPending}
                 className="w-full"
               >

@@ -117,29 +117,26 @@ export default function Analytics() {
         ) : (
           <>
             <KpiCard
-              title="Organic Traffic"
-              value={(overview?.organicTraffic ?? 4250).toLocaleString()}
-              change={overview?.organicTrafficChange ?? 12}
+              title="Опубликовано статей"
+              value={overview?.publishedArticles ?? 0}
               icon={TrendingUp}
               color="bg-emerald-400/15 text-emerald-400"
             />
             <KpiCard
-              title="Avg. Position"
-              value={`#${overview?.avgRankPosition ?? 4.2}`}
-              change={overview?.avgRankChange ?? 2}
+              title="Проиндексировано"
+              value={overview?.indexedArticles ?? 0}
               icon={Target}
               color="bg-blue-400/15 text-blue-400"
             />
             <KpiCard
-              title="Click-Through Rate"
-              value={`${overview?.ctr ?? 3.8}%`}
-              change={0.5}
+              title="Ключевых слов"
+              value={overview?.keywordCount ?? 0}
               icon={MousePointerClick}
               color="bg-purple-400/15 text-purple-400"
             />
             <KpiCard
-              title="Indexed Pages"
-              value={overview?.indexedPages ?? 24}
+              title="Всего статей"
+              value={overview?.totalArticles ?? 0}
               icon={Globe}
               color="bg-orange-400/15 text-orange-400"
             />

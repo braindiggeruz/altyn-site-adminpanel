@@ -1,101 +1,80 @@
-# ALTYN Therapy SEO Admin Panel — TODO
+# ALTYN Therapy SEO Admin Panel — TODO (REFACTOR)
 
-## Phase 1: Foundation
-- [x] Initialize project with db, server, user features
-- [x] Design system: dark theme, OKLCH color palette, Inter + JetBrains Mono typography
-- [x] Database schema: 10 tables (articles, categories, keywords, internal_links, seo_tasks, article_analytics, competitors, content_calendar, audit_log, article_versions)
-- [x] Run DB migrations and seed sample data
-- [x] DashboardLayout with full sidebar navigation (8 sections + user profile)
-- [x] App.tsx routing for all pages with AuthGate
-
-## Phase 2: Authentication & User Management
-- [x] JWT-based auth via Manus OAuth (built-in)
-- [x] Role-based access: admin, editor, viewer, user
-- [x] Activity/audit logging (audit_log table + procedures)
-- [x] Admin user management page: list, change role, deactivate, reactivate
-- [x] Deactivate user sets role to viewer; reactivate restores to user
-
-## Phase 3: Article Management
-- [x] Articles list page with search, filter by status/category, SEO score display
-- [x] Bulk actions: publish, archive, delete
-- [x] Rich text WYSIWYG editor (contenteditable + formatting toolbar)
-- [x] Draft / Schedule / Publish workflow
-- [x] Image upload for featured image (base64 → S3 via storagePut)
-- [x] Version history per article (article_versions table)
-
-## Phase 4: SEO Optimization
-- [x] Real-time SEO score (0–100) sidebar panel in article editor
-- [x] H1 editor with keyword presence check
-- [x] Meta description editor with character counter (max 160)
-- [x] Meta keywords editor
-- [x] Keyword density checker (target 1–3%)
-- [x] Readability analysis (Flesch-Kincaid style score)
-- [x] Open Graph tags editor (og:title, og:description, og:image)
-- [x] Twitter Card tags editor
+## ✅ Уже сделано (предыдущая версия)
+- [x] Database schema: 10 tables
+- [x] DashboardLayout with sidebar navigation
+- [x] Articles CRUD (create, edit, delete, bulk actions)
+- [x] Real-time SEO score (0–100)
+- [x] H1, Meta Description, Meta Keywords editors
+- [x] Open Graph / Twitter Card tags
 - [x] Canonical URL management
-- [x] Schema.org JSON-LD structured data preview
+- [x] Version history per article (read-only)
+- [x] Keywords CRUD
+- [x] Competitors CRUD
+- [x] Content Calendar (create/delete events)
+- [x] Admin user management (roles)
+- [x] Settings page (SEO defaults, robots.txt)
+- [x] Audit log viewer
+- [x] Dark theme, responsive design
 
-## Phase 5: AI-Powered Features
-- [x] AI auto-generate H1 from article content + target keyword
-- [x] AI auto-generate meta description
-- [x] AI auto-generate meta keywords
-- [x] AI generate schema.org JSON-LD markup
-- [x] AI smart internal linking suggestions with anchor text
-- [x] AI competitor analysis (top keywords, content gaps)
-- [x] AI keyword research (10 suggestions from seed keyword)
-- [x] AI content calendar topic suggestions
+## 🔧 РЕФАКТОРИНГ: Независимость от Manus
 
-## Phase 6: Google Search Console Integration
-- [x] GSC submit article for indexing (UI + seo_tasks queue)
-- [x] Auto-generate XML sitemap on demand (generateSitemap procedure)
-- [x] robots.txt editor with real DB persistence (saved via settings.save)
-- [x] Indexing status per article (indexed boolean + indexedAt timestamp)
+- [ ] Добавить поле password в таблицу users (bcrypt)
+- [ ] Добавить поле isActive в таблицу users
+- [ ] Заменить Manus OAuth на свою email+password JWT аутентификацию
+- [ ] Создать страницу Login (/login)
+- [ ] Создать страницу Register (/register) — только для первого admin
+- [ ] Убрать зависимости от OAUTH_SERVER_URL, VITE_APP_ID, VITE_OAUTH_PORTAL_URL
+- [ ] Заменить Manus LLM (invokeLLM) на прямой OpenAI API (OPENAI_API_KEY)
+- [ ] Убрать BUILT_IN_FORGE_API_URL / BUILT_IN_FORGE_API_KEY из кода
+- [ ] Заменить Manus S3 storage на multer + локальное хранилище
+- [ ] Добавить railway.json для деплоя на Railway
+- [ ] Добавить .env.example с документацией переменных
 
-## Phase 7: Analytics Dashboard
-- [x] KPI cards: total articles, published, avg SEO score, keywords tracked
-- [x] Traffic chart (30-day area chart with Recharts)
-- [x] Top ranking keywords table with rank changes
-- [x] Per-article performance metrics table (views, SEO score, status)
+## 🗑️ УБРАТЬ нерабочие заглушки
 
-## Phase 8: Keyword Research & Tracking
-- [x] Keywords list with search volume, KD, CPC, trend, rank
-- [x] Add keywords (manual form)
-- [x] Edit keyword rank and trend (dialog)
-- [x] Delete keywords (admin only)
-- [x] AI keyword suggestions (10 related keywords from seed)
+- [ ] Убрать фейковые данные из Analytics (Math.random, захардкоженные числа)
+- [ ] Убрать "Simulated Data" GSC блок из Analytics
+- [ ] Убрать GSC Submit to Index кнопку (нет реального API)
+- [ ] Убрать Semrush интеграцию из Settings
+- [ ] Убрать GA4 интеграцию из Settings (нет реального API)
+- [ ] Убрать AI Research кнопку для ключевых слов
+- [ ] Убрать AI Analyze конкурентов
+- [ ] Убрать Content Gap AI анализ
+- [ ] Убрать AI генерацию метаданных (если нет OpenAI ключа — показывать заглушку)
+- [ ] Убрать AI Schema.org генерацию
+- [ ] Убрать AI Internal Links suggestions
+- [ ] Исправить поля конкурентов (добавить estimatedTraffic, keywordCount в схему БД)
+- [ ] Убрать нерабочий период-фильтр из Analytics
 
-## Phase 9: Competitor Analysis
-- [x] Competitors list page with authority score, traffic, keywords, backlinks
-- [x] Add/delete competitors (admin/editor)
-- [x] AI competitor analysis (top keywords discovery)
-- [x] Content gap identification (AI-powered)
-- [x] Backlinks count displayed as metric
+## 🌍 Русская локализация
 
-## Phase 10: Content Calendar
-- [x] Monthly calendar view with event dots per day
-- [x] Click day to see events, double-click to add
-- [x] Create/delete calendar events
-- [x] Priority levels: high, medium, low
-- [x] Status tracking: planned, in_progress, review, completed
-- [x] Upcoming events sidebar
+- [ ] Установить react-i18next
+- [ ] Создать ru.json (основной язык)
+- [ ] Создать en.json (дополнительный)
+- [ ] Перевести DashboardLayout (навигация)
+- [ ] Перевести все страницы на русский
+- [ ] Добавить переключатель RU/EN в sidebar
 
-## Phase 11: Internal Linking
-- [x] AI-powered link suggestions in article editor
-- [x] Anchor text optimization (stored in internal_links.anchorText)
-- [x] Link density analysis (internal links count per article)
+## ✏️ WYSIWYG редактор
 
-## Phase 12: Settings
-- [x] SEO defaults (siteUrl, siteName, defaultMetaDescription) with DB persistence
-- [x] robots.txt editor with real DB save (settings.save mutation)
-- [x] Sitemap management with regenerate button
-- [x] Integrations panel (GSC, GA4, Semrush) with connection status
-- [x] AI settings (language, tone) with DB persistence
-- [x] Audit log viewer with full activity history
+- [ ] Установить @tiptap/react
+- [ ] Заменить Textarea на TipTap в ArticleEditor
+- [ ] Тулбар: жирный, курсив, заголовки H2/H3, списки, ссылки
+- [ ] Загрузка изображений через multer в редактор
 
-## Phase 13: Testing & Polish
-- [x] Vitest unit tests: 17 tests passing (SEO scoring, articles CRUD, keywords, competitors, admin, calendar, sitemap)
-- [x] Loading skeletons on all data-heavy pages
-- [x] Empty states on all list views
-- [x] Error handling with toast notifications
-- [x] Responsive design (mobile-first with breakpoints)
-- [x] Final checkpoint and delivery
+## 🔧 Реальные функции (доработка)
+
+- [ ] Исправить sitemap.xml — отдавать по URL /sitemap.xml как XML
+- [ ] Исправить robots.txt — отдавать по URL /robots.txt
+- [ ] Analytics: реальные данные из БД (views, articles count, avg SEO score)
+- [ ] Добавить редактирование событий Calendar
+- [ ] Добавить откат версий статей
+- [ ] Исправить деактивацию пользователей (поле isActive)
+- [ ] Добавить правильные права для editor/viewer ролей
+
+## 🚀 Deploy
+
+- [ ] Протестировать все функции
+- [ ] README с инструкцией деплоя на Railway
+- [ ] Финальный checkpoint

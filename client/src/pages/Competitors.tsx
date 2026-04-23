@@ -61,19 +61,8 @@ export default function Competitors() {
     onError: (e) => toast.error(e.message),
   });
 
-  const analyzeMutation = trpc.competitors.analyze.useMutation({
-    onSuccess: () => {
-      utils.competitors.list.invalidate();
-      toast.success("Analysis complete!");
-    },
-    onError: (e) => toast.error(e.message),
-  });
-
   const getCompDomain = (id: number) => competitors?.find((c) => c.id === id)?.domain ?? "";
-
-  const gapMutation = trpc.competitors.contentGap.useMutation({
-    onError: (err: any) => toast.error(err.message),
-  });
+  const handleAnalyze = () => toast.info("Автоанализ требует OpenAI API. Добавьте OPENAI_API_KEY в настройках сервера.");
 
   const selectedComp = competitors?.find((c) => c.id === analyzeId);
 
@@ -160,7 +149,7 @@ export default function Competitors() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); analyzeMutation.mutate({ id: comp.id, domain: comp.domain }); }}>
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleAnalyze(); }}>
                           <Sparkles className="w-4 h-4 mr-2" /> AI Analyze
                         </DropdownMenuItem>
                         <DropdownMenuItem
@@ -217,12 +206,11 @@ export default function Competitors() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => analyzeMutation.mutate({ id: analyzeId, domain: getCompDomain(analyzeId) })}
-                        disabled={analyzeMutation.isPending}
+                        onClick={handleAnalyze}
                         className="gap-2 border-primary/30 text-primary hover:bg-primary/10 text-xs"
                       >
-                        {analyzeMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                        Re-analyze
+                        <Sparkles className="w-3 h-3" />
+                        AI Analyze
                       </Button>
                     </div>
                   </div>
@@ -276,36 +264,18 @@ export default function Competitors() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => gapMutation.mutate({ competitorId: analyzeId })}
-                      disabled={gapMutation.isPending}
+                      onClick={handleAnalyze}
                       className="gap-2 border-primary/30 text-primary hover:bg-primary/10 text-xs"
                     >
-                      {gapMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                      <Sparkles className="w-3 h-3" />
                       Analyze Gap
                     </Button>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {gapMutation.data ? (
-                    <div className="space-y-3">
-                      {gapMutation.data.gaps?.map((gap: any, i: number) => (
-                        <div key={i} className="p-3 rounded-lg border border-border/50 bg-accent/20">
-                          <p className="text-sm font-medium">{gap.topic}</p>
-                          <p className="text-xs text-muted-foreground mt-1">{gap.description}</p>
-                          {gap.keywords && (
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {gap.keywords.slice(0, 4).map((kw: string) => (
-                                <span key={kw} className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded">{kw}</span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
+                  {false ? null : (
                     <div className="text-center py-6 text-muted-foreground">
-                      <p className="text-sm">Click "Analyze Gap" to discover content opportunities</p>
-                      <p className="text-xs mt-1 opacity-60">AI will identify topics your competitor ranks for that you don't</p>
+                      <p className="text-sm">Нажмите "Analyze Gap" для анализа пробелов в контенте (OpenAI API)</p>
                     </div>
                   )}
                 </CardContent>

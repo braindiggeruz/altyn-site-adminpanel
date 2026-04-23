@@ -56,8 +56,6 @@ export default function Settings() {
       if (savedSettings.siteUrl) setSiteUrl(savedSettings.siteUrl);
       if (savedSettings.siteName) setSiteName(savedSettings.siteName);
       if (savedSettings.defaultMetaDescription) setDefaultMeta(savedSettings.defaultMetaDescription);
-      if (savedSettings.gscProperty) setGscProperty(savedSettings.gscProperty);
-      if (savedSettings.ga4MeasurementId) setGa4Id(savedSettings.ga4MeasurementId);
       if (savedSettings.robotsTxt) setRobotsTxt(savedSettings.robotsTxt);
       if (savedSettings.aiGenerationLanguage) setAiLang(savedSettings.aiGenerationLanguage);
       if (savedSettings.aiTone) setAiTone(savedSettings.aiTone);
@@ -91,8 +89,6 @@ export default function Settings() {
       siteUrl,
       siteName,
       defaultMetaDescription: defaultMeta,
-      gscProperty,
-      ga4MeasurementId: ga4Id,
       aiGenerationLanguage: aiLang,
       aiTone,
     });

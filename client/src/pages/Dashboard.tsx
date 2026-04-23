@@ -99,7 +99,6 @@ export default function Dashboard() {
   const [, setLocation] = useLocation();
   const { data: stats, isLoading: statsLoading } = trpc.dashboard.stats.useQuery();
   const { data: traffic, isLoading: trafficLoading } = trpc.dashboard.trafficChart.useQuery();
-  const { data: analytics } = trpc.analytics.overview.useQuery();
 
   const chartData = traffic?.map((d) => ({
     ...d,
@@ -137,18 +136,14 @@ export default function Dashboard() {
         ) : (
           <>
             <KpiCard
-              title="Organic Traffic (30d)"
-              value={analytics?.organicTraffic?.toLocaleString() ?? "4,250"}
-              change={analytics?.organicTrafficChange}
-              changeLabel=" vs last month"
+              title="Опубликованных статей"
+              value={stats?.publishedArticles ?? 0}
               icon={TrendingUp}
               color="bg-emerald-400/15 text-emerald-400"
             />
             <KpiCard
-              title="Avg. Rank Position"
-              value={`#${analytics?.avgRankPosition ?? "4.2"}`}
-              change={analytics?.avgRankChange}
-              changeLabel=" positions"
+              title="Проиндексировано"
+              value={`${stats?.indexedArticles ?? 0} / ${stats?.totalArticles ?? 0}`}
               icon={Target}
               color="bg-blue-400/15 text-blue-400"
             />

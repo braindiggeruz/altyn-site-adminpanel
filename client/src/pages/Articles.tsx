@@ -80,7 +80,7 @@ export default function Articles() {
       utils.articles.list.invalidate();
       toast.success("Article deleted");
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e: any) => toast.error(e.message),
   });
 
   const bulkMutation = trpc.articles.bulkAction.useMutation({
@@ -89,15 +89,7 @@ export default function Articles() {
       setSelected([]);
       toast.success("Bulk action completed");
     },
-    onError: (e) => toast.error(e.message),
-  });
-
-  const submitGSC = trpc.articles.submitToGSC.useMutation({
-    onSuccess: () => {
-      utils.articles.list.invalidate();
-      toast.success("Submitted to Google Search Console");
-    },
-    onError: (e) => toast.error(e.message),
+    onError: (e: any) => toast.error(e.message),
   });
 
   const articles = data?.items ?? [];
@@ -274,11 +266,7 @@ export default function Articles() {
                             <DropdownMenuItem onClick={() => setLocation(`/articles/${article.id}/edit`)}>
                               <Edit className="w-4 h-4 mr-2" /> Edit
                             </DropdownMenuItem>
-                            {!article.indexed && (
-                              <DropdownMenuItem onClick={() => submitGSC.mutate({ id: article.id })}>
-                                <Globe className="w-4 h-4 mr-2" /> Submit to GSC
-                              </DropdownMenuItem>
-                            )}
+
                             <DropdownMenuItem
                               className="text-destructive"
                               onClick={() => {
