@@ -224,7 +224,7 @@ export const appRouter = router({
         limit: z.number().min(1).max(100).default(20),
         offset: z.number().min(0).default(0),
       }))
-      .query(async ({ input }) => db.getArticles(input)),
+      .query(async ({ input }) => db.getAllArticles(input.limit, input.offset)),
 
     byId: protectedProcedure
       .input(z.object({ id: z.number() }))
@@ -636,7 +636,7 @@ export const appRouter = router({
       }),
 
     generateSitemap: protectedProcedure.query(async () => {
-      const { items } = await db.getArticles({ status: "published", limit: 1000 });
+      const items = await db.getArticles({ status: "published", limit: 1000 });
       const siteUrl = process.env.SITE_URL || "https://altyn-therapy.uz";
       const urls = items.map((a) => ({
         loc: `${siteUrl}/articles/${a.slug}`,
@@ -655,7 +655,7 @@ ${urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${u.lastmod}</lastmod><cha
 
   // ─── Categories ─────────────────────────────────────────────────────────────
   categories: router({
-    list: protectedProcedure.query(async () => db.getAllCategories()),
+    list: protectedProcedure.query(async () => db.getCategories()),
     create: protectedProcedure
       .input(z.object({ name: z.string().min(1), slug: z.string().optional(), description: z.string().optional() }))
       .mutation(async ({ input, ctx }) => {
@@ -777,7 +777,11 @@ ${urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${u.lastmod}</lastmod><cha
   calendar: router({
     list: protectedProcedure
       .input(z.object({ year: z.number().optional(), month: z.number().optional() }))
-      .query(async ({ input }) => db.getCalendarEvents(input)),
+      .query(async ({ input }) => {
+        const now = new Date();
+        const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        return db.getCalendarEvents(now, endDate);
+      }),
 
     create: protectedProcedure
       .input(z.object({

@@ -217,19 +217,29 @@ __export(db_exports, {
   createCalendarEvent: () => createCalendarEvent,
   createCategory: () => createCategory,
   createCompetitor: () => createCompetitor,
+  createInternalLink: () => createInternalLink,
   createKeyword: () => createKeyword,
   createUser: () => createUser,
+  deactivateUser: () => deactivateUser,
   deleteArticle: () => deleteArticle,
+  deleteCalendarEvent: () => deleteCalendarEvent,
+  deleteCompetitor: () => deleteCompetitor,
+  deleteInternalLink: () => deleteInternalLink,
+  deleteKeyword: () => deleteKeyword,
   getAllArticles: () => getAllArticles,
   getAllUsers: () => getAllUsers,
   getArticleById: () => getArticleById,
   getArticleBySlug: () => getArticleBySlug,
+  getArticleVersions: () => getArticleVersions,
+  getArticles: () => getArticles,
+  getAuditLog: () => getAuditLog,
   getAuditLogs: () => getAuditLogs,
   getCalendarEvents: () => getCalendarEvents,
   getCategories: () => getCategories,
   getCompetitors: () => getCompetitors,
   getDashboardStats: () => getDashboardStats,
   getDb: () => getDb,
+  getInternalLinks: () => getInternalLinks,
   getKeywords: () => getKeywords,
   getPublishedArticles: () => getPublishedArticles,
   getSeoSettings: () => getSeoSettings,
@@ -237,12 +247,17 @@ __export(db_exports, {
   getUserByEmail: () => getUserByEmail,
   getUserById: () => getUserById,
   logAudit: () => logAudit,
+  reactivateUser: () => reactivateUser,
   recordArticleView: () => recordArticleView,
+  saveArticleVersion: () => saveArticleVersion,
   saveSeoSettings: () => saveSeoSettings,
   searchArticles: () => searchArticles,
   updateArticle: () => updateArticle,
+  updateCalendarEvent: () => updateCalendarEvent,
+  updateCompetitor: () => updateCompetitor,
   updateKeyword: () => updateKeyword,
   updateUser: () => updateUser,
+  updateUserRole: () => updateUserRole,
   upsertUser: () => upsertUser
 });
 import { and, desc, eq, like, or, sql } from "drizzle-orm";
@@ -472,6 +487,97 @@ async function recordArticleView(articleId) {
   } else {
     await db.insert(articleAnalytics).values({ articleId, date: /* @__PURE__ */ new Date(), views: 1, clicks: 0 });
   }
+}
+async function deleteCompetitor(id) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(competitors).where(eq(competitors.id, id));
+}
+async function updateCompetitor(id, updates) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(competitors).set(updates).where(eq(competitors.id, id));
+}
+async function deleteKeyword(id) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(keywords).where(eq(keywords.id, id));
+}
+async function saveArticleVersion(articleId, versionData) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.insert(articleVersions).values({
+    articleId,
+    title: versionData.title,
+    content: versionData.content,
+    status: versionData.status,
+    createdAt: /* @__PURE__ */ new Date()
+  }).returning({ id: articleVersions.id });
+  return result[0] || null;
+}
+async function createInternalLink(data) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.insert(internalLinks).values({
+    fromArticleId: data.fromArticleId,
+    toArticleId: data.toArticleId,
+    anchorText: data.anchorText
+  }).returning({ id: internalLinks.id });
+  return result[0] || null;
+}
+async function deleteInternalLink(id) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(internalLinks).where(eq(internalLinks.id, id));
+}
+async function getAuditLog(limit = 100) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(auditLog).orderBy(desc(auditLog.timestamp)).limit(limit);
+}
+async function getArticleVersions(articleId) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(articleVersions).where(eq(articleVersions.articleId, articleId)).orderBy(desc(articleVersions.createdAt));
+}
+async function updateCalendarEvent(id, updates) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(contentCalendar).set(updates).where(eq(contentCalendar.id, id));
+}
+async function deleteCalendarEvent(id) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(contentCalendar).where(eq(contentCalendar.id, id));
+}
+async function getInternalLinks(articleId) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(internalLinks).where(eq(internalLinks.fromArticleId, articleId));
+}
+async function updateUserRole(userId, role) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users).set({ role }).where(eq(users.id, userId));
+}
+async function getArticles(input) {
+  const db = await getDb();
+  if (!db) return [];
+  let query = db.select().from(articles);
+  if (input.status) {
+    query = query.where(eq(articles.status, input.status));
+  }
+  return query.orderBy(desc(articles.updatedAt)).limit(input.limit || 100).offset(input.offset || 0);
+}
+async function deactivateUser(userId) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users).set({ isActive: false }).where(eq(users.id, userId));
+}
+async function reactivateUser(userId, role) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users).set({ isActive: true, role }).where(eq(users.id, userId));
 }
 var _db, _settings;
 var init_db = __esm({
@@ -952,7 +1058,7 @@ var appRouter = router({
       search: z2.string().optional(),
       limit: z2.number().min(1).max(100).default(20),
       offset: z2.number().min(0).default(0)
-    })).query(async ({ input }) => (void 0)(input)),
+    })).query(async ({ input }) => getAllArticles(input.limit, input.offset)),
     byId: protectedProcedure.input(z2.object({ id: z2.number() })).query(async ({ input }) => {
       const article = await getArticleById(input.id);
       if (!article) throw new TRPCError3({ code: "NOT_FOUND" });
@@ -1021,7 +1127,7 @@ var appRouter = router({
       const { id, ...data } = input;
       const existing = await getArticleById(id);
       if (!existing) throw new TRPCError3({ code: "NOT_FOUND" });
-      await (void 0)({
+      await saveArticleVersion({
         articleId: id,
         version: Date.now(),
         title: existing.title,
@@ -1067,10 +1173,10 @@ var appRouter = router({
       await logAudit({ userId: ctx.user.id, action: `bulk_${input.action}`, entityType: "article", newValues: { ids: input.ids } });
       return { success: true, count: input.ids.length };
     }),
-    versions: protectedProcedure.input(z2.object({ articleId: z2.number() })).query(async ({ input }) => (void 0)(input.articleId)),
+    versions: protectedProcedure.input(z2.object({ articleId: z2.number() })).query(async ({ input }) => getArticleVersions(input.articleId)),
     restoreVersion: protectedProcedure.input(z2.object({ articleId: z2.number(), versionId: z2.number() })).mutation(async ({ input, ctx }) => {
       requireRole(ctx.user.role, ["admin", "editor"]);
-      const versions = await (void 0)(input.articleId);
+      const versions = await getArticleVersions(input.articleId);
       const version = versions.find((v) => v.id === input.versionId);
       if (!version) throw new TRPCError3({ code: "NOT_FOUND" });
       await updateArticle(input.articleId, { content: version.content });
@@ -1319,7 +1425,7 @@ var appRouter = router({
       }
     }),
     generateSitemap: protectedProcedure.query(async () => {
-      const { items } = await (void 0)({ status: "published", limit: 1e3 });
+      const items = await getArticles({ status: "published", limit: 1e3 });
       const siteUrl = process.env.SITE_URL || "https://altyn-therapy.uz";
       const urls = items.map((a) => ({
         loc: `${siteUrl}/articles/${a.slug}`,
@@ -1337,7 +1443,7 @@ ${urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${u.lastmod}</lastmod><cha
   }),
   // ─── Categories ─────────────────────────────────────────────────────────────
   categories: router({
-    list: protectedProcedure.query(async () => (void 0)()),
+    list: protectedProcedure.query(async () => getCategories()),
     create: protectedProcedure.input(z2.object({ name: z2.string().min(1), slug: z2.string().optional(), description: z2.string().optional() })).mutation(async ({ input, ctx }) => {
       requireRole(ctx.user.role, ["admin", "editor"]);
       const slug = input.slug || generateSlug(input.name);
@@ -1381,7 +1487,7 @@ ${urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${u.lastmod}</lastmod><cha
     }),
     delete: protectedProcedure.input(z2.object({ id: z2.number() })).mutation(async ({ input, ctx }) => {
       requireRole(ctx.user.role, ["admin"]);
-      await (void 0)(input.id);
+      await deleteKeyword(input.id);
       return { success: true };
     })
   }),
@@ -1418,7 +1524,7 @@ ${urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${u.lastmod}</lastmod><cha
     })).mutation(async ({ input, ctx }) => {
       requireRole(ctx.user.role, ["admin", "editor"]);
       const { id, ...data } = input;
-      await (void 0)(id, {
+      await updateCompetitor(id, {
         ...data,
         topKeywords: data.topKeywords ? JSON.stringify(data.topKeywords) : void 0
       });
@@ -1426,13 +1532,17 @@ ${urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${u.lastmod}</lastmod><cha
     }),
     delete: protectedProcedure.input(z2.object({ id: z2.number() })).mutation(async ({ input, ctx }) => {
       requireRole(ctx.user.role, ["admin"]);
-      await (void 0)(input.id);
+      await deleteCompetitor(input.id);
       return { success: true };
     })
   }),
   // ─── Calendar ────────────────────────────────────────────────────────────────
   calendar: router({
-    list: protectedProcedure.input(z2.object({ year: z2.number().optional(), month: z2.number().optional() })).query(async ({ input }) => getCalendarEvents(input)),
+    list: protectedProcedure.input(z2.object({ year: z2.number().optional(), month: z2.number().optional() })).query(async ({ input }) => {
+      const now = /* @__PURE__ */ new Date();
+      const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      return getCalendarEvents(now, endDate);
+    }),
     create: protectedProcedure.input(z2.object({
       title: z2.string().min(1),
       description: z2.string().optional(),
@@ -1458,24 +1568,24 @@ ${urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${u.lastmod}</lastmod><cha
     })).mutation(async ({ input, ctx }) => {
       requireRole(ctx.user.role, ["admin", "editor"]);
       const { id, ...data } = input;
-      await (void 0)(id, data);
+      await updateCalendarEvent(id, data);
       return { success: true };
     }),
     delete: protectedProcedure.input(z2.object({ id: z2.number() })).mutation(async ({ input, ctx }) => {
       requireRole(ctx.user.role, ["admin", "editor"]);
-      await (void 0)(input.id);
+      await deleteCalendarEvent(input.id);
       return { success: true };
     })
   }),
   // ─── Internal Links ──────────────────────────────────────────────────────────
   internalLinks: router({
-    list: protectedProcedure.input(z2.object({ articleId: z2.number() })).query(async ({ input }) => (void 0)(input.articleId)),
+    list: protectedProcedure.input(z2.object({ articleId: z2.number() })).query(async ({ input }) => getInternalLinks(input.articleId)),
     listAll: protectedProcedure.query(async () => {
       const database = await getDb();
       if (!database) return [];
-      const { internalLinks: internalLinks3, articles: articles2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { internalLinks: internalLinks2, articles: articles2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
       const { eq: eqOp } = await import("drizzle-orm");
-      return database.select().from(internalLinks3).limit(200);
+      return database.select().from(internalLinks2).limit(200);
     }),
     create: protectedProcedure.input(z2.object({
       fromArticleId: z2.number(),
@@ -1484,12 +1594,12 @@ ${urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${u.lastmod}</lastmod><cha
       linkType: z2.enum(["primary", "secondary", "contextual"]).optional()
     })).mutation(async ({ input, ctx }) => {
       requireRole(ctx.user.role, ["admin", "editor"]);
-      await (void 0)(input);
+      await createInternalLink(input);
       return { success: true };
     }),
     delete: protectedProcedure.input(z2.object({ id: z2.number() })).mutation(async ({ input, ctx }) => {
       requireRole(ctx.user.role, ["admin", "editor"]);
-      await (void 0)(input.id);
+      await deleteInternalLink(input.id);
       return { success: true };
     })
   }),
@@ -1505,26 +1615,26 @@ ${urls.map((u) => `  <url><loc>${u.loc}</loc><lastmod>${u.lastmod}</lastmod><cha
     })).mutation(async ({ input, ctx }) => {
       requireRole(ctx.user.role, ["admin"]);
       if (input.userId === ctx.user.id) throw new TRPCError3({ code: "BAD_REQUEST", message: "\u041D\u0435\u043B\u044C\u0437\u044F \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u0441\u0432\u043E\u044E \u0440\u043E\u043B\u044C" });
-      await (void 0)(input.userId, input.role);
+      await updateUserRole(input.userId, input.role);
       await logAudit({ userId: ctx.user.id, action: "update_role", entityType: "user", entityId: input.userId, newValues: { role: input.role } });
       return { success: true };
     }),
     deactivateUser: protectedProcedure.input(z2.object({ userId: z2.number() })).mutation(async ({ input, ctx }) => {
       requireRole(ctx.user.role, ["admin"]);
       if (input.userId === ctx.user.id) throw new TRPCError3({ code: "BAD_REQUEST", message: "\u041D\u0435\u043B\u044C\u0437\u044F \u0434\u0435\u0430\u043A\u0442\u0438\u0432\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0441\u0435\u0431\u044F" });
-      await (void 0)(input.userId);
+      await deactivateUser(input.userId);
       await logAudit({ userId: ctx.user.id, action: "deactivate_user", entityType: "user", entityId: input.userId });
       return { success: true };
     }),
     reactivateUser: protectedProcedure.input(z2.object({ userId: z2.number(), role: z2.enum(["user", "editor", "viewer"]).default("user") })).mutation(async ({ input, ctx }) => {
       requireRole(ctx.user.role, ["admin"]);
-      await (void 0)(input.userId, input.role);
+      await reactivateUser(input.userId, input.role);
       await logAudit({ userId: ctx.user.id, action: "reactivate_user", entityType: "user", entityId: input.userId });
       return { success: true };
     }),
     auditLog: protectedProcedure.input(z2.object({ limit: z2.number().default(50) })).query(async ({ ctx, input }) => {
       requireRole(ctx.user.role, ["admin"]);
-      return (void 0)(input.limit);
+      return getAuditLog(input.limit);
     })
   }),
   // ─── Settings ────────────────────────────────────────────────────────────────

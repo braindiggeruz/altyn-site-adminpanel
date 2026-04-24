@@ -332,3 +332,109 @@ export async function recordArticleView(articleId: number): Promise<void> {
     await db.insert(articleAnalytics).values({ articleId, date: new Date(), views: 1, clicks: 0 });
   }
 }
+
+export async function deleteCompetitor(id: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(competitors).where(eq(competitors.id, id));
+}
+
+export async function updateCompetitor(id: number, updates: Partial<InsertCompetitor>): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(competitors).set(updates).where(eq(competitors.id, id));
+}
+
+export async function deleteKeyword(id: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(keywords).where(eq(keywords.id, id));
+}
+
+export async function saveArticleVersion(articleId: number, versionData: any): Promise<{ id: number } | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.insert(articleVersions).values({
+    articleId,
+    title: versionData.title,
+    content: versionData.content,
+    status: versionData.status,
+    createdAt: new Date(),
+  }).returning({ id: articleVersions.id });
+  return result[0] || null;
+}
+
+export async function createInternalLink(data: { fromArticleId: number; toArticleId: number; anchorText: string }): Promise<{ id: number } | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.insert(internalLinks).values({
+    fromArticleId: data.fromArticleId,
+    toArticleId: data.toArticleId,
+    anchorText: data.anchorText,
+  }).returning({ id: internalLinks.id });
+  return result[0] || null;
+}
+
+export async function deleteInternalLink(id: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(internalLinks).where(eq(internalLinks.id, id));
+}
+
+export async function getAuditLog(limit: number = 100): Promise<any[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(auditLog).orderBy(desc(auditLog.timestamp)).limit(limit);
+}
+
+export async function getArticleVersions(articleId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(articleVersions).where(eq(articleVersions.articleId, articleId)).orderBy(desc(articleVersions.createdAt));
+}
+
+export async function updateCalendarEvent(id: number, updates: Partial<InsertCalendarEvent>): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(contentCalendar).set(updates).where(eq(contentCalendar.id, id));
+}
+
+export async function deleteCalendarEvent(id: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(contentCalendar).where(eq(contentCalendar.id, id));
+}
+
+export async function getInternalLinks(articleId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(internalLinks).where(eq(internalLinks.fromArticleId, articleId));
+}
+
+export async function updateUserRole(userId: number, role: string): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users).set({ role }).where(eq(users.id, userId));
+}
+
+export async function getArticles(input: { status?: string; limit?: number; offset?: number }) {
+  const db = await getDb();
+  if (!db) return [];
+  let query = db.select().from(articles);
+  if (input.status) {
+    query = query.where(eq(articles.status, input.status));
+  }
+  return query.orderBy(desc(articles.updatedAt)).limit(input.limit || 100).offset(input.offset || 0);
+}
+
+export async function deactivateUser(userId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users).set({ isActive: false }).where(eq(users.id, userId));
+}
+
+export async function reactivateUser(userId: number, role: string): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users).set({ isActive: true, role }).where(eq(users.id, userId));
+}
